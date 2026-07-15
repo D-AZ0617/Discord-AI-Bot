@@ -1,0 +1,42 @@
+{
+  "name": "discord-agent-bot",
+  "version": "2.0.0",
+  "description": "Centrally hosted Discord bot for AI cloud agents (Cloudflare Workers + Supabase)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "register-commands": "tsx scripts/register-commands.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset"
+  },
+  "keywords": [
+    "discord",
+    "cursor",
+    "cloud-agents",
+    "cloudflare-workers",
+    "supabase"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.5",
+    "@cloudflare/workers-types": "^5.20260715.1",
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.111.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.6"
+  }
+}

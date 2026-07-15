@@ -1,0 +1,33 @@
+name = "discord-agent-bot"
+main = "src/worker.ts"
+compatibility_date = "2025-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable execution: one workflow instance per agent run.
+[[workflows]]
+name = "run-agent"
+binding = "RUN_AGENT_WORKFLOW"
+class_name = "RunAgentWorkflow"
+
+# Static onboarding dashboard (served for any non-API, non-interaction route).
+[assets]
+directory = "./dashboard"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# Non-secret configuration. Replace the placeholder values for your deployment.
+# Secrets are NOT stored here -- set them with `wrangler secret put <NAME>`:
+#   DISCORD_BOT_TOKEN
+#   DISCORD_CLIENT_SECRET
+#   SUPABASE_SERVICE_ROLE_KEY
+#   CREDENTIAL_ENCRYPTION_KEYS   (e.g. "1:<base64 32-byte key>")
+[vars]
+DISCORD_PUBLIC_KEY = "replace-with-your-application-public-key"
+DISCORD_APPLICATION_ID = "replace-with-your-application-id"
+DISCORD_CLIENT_ID = "replace-with-your-application-id"
+SUPABASE_URL = "https://your-project.supabase.co"
+SUPABASE_ANON_KEY = "replace-with-your-supabase-anon-key"
+PUBLIC_BASE_URL = "https://discord-agent-bot.example.workers.dev"
+NEW_AGENTS_PER_USER_PER_HOUR = "5"
+POLL_INTERVAL_MS = "5000"
+AGENT_TIMEOUT_MINUTES = "120"

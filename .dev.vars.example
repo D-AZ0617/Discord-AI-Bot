@@ -1,0 +1,28 @@
+# Local development secrets for `wrangler dev`. Copy to `.dev.vars` and fill in.
+# In production these are set with `wrangler secret put <NAME>` and via
+# `[vars]` in wrangler.toml -- never commit real values.
+
+# Discord application (Developer Portal > your app)
+DISCORD_PUBLIC_KEY=your-application-public-key
+DISCORD_APPLICATION_ID=your-application-id
+DISCORD_CLIENT_ID=your-application-id
+DISCORD_BOT_TOKEN=your-bot-token
+DISCORD_CLIENT_SECRET=your-client-secret
+
+# Supabase (Project Settings > API)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# BYOK envelope encryption keys: "version:base64(32 bytes)". Highest version
+# is used to encrypt. Generate one with:
+#   node -e "console.log('1:'+require('crypto').randomBytes(32).toString('base64'))"
+CREDENTIAL_ENCRYPTION_KEYS=1:base64-32-byte-key
+
+# Public URL of the deployed worker/dashboard
+PUBLIC_BASE_URL=http://localhost:8787
+
+# Optional tuning
+NEW_AGENTS_PER_USER_PER_HOUR=5
+POLL_INTERVAL_MS=5000
+AGENT_TIMEOUT_MINUTES=120

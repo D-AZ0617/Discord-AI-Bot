@@ -1,0 +1,21 @@
+---
+description: Always give user-facing shell commands with the full project directory
+alwaysApply: true
+---
+
+# Full-directory shell commands
+
+Whenever providing a shell command for the user to copy or run:
+
+- Include the full absolute project directory in the command.
+- Quote directory paths because they may contain spaces.
+- Do not provide bare commands that depend on the user's current directory.
+- Prefer a subshell so the command does not permanently change the user's shell directory.
+
+Example:
+
+```bash
+(cd "/Users/noahdiaz/Documents/GitHub/Discord AI Bot" && npm run register-commands)
+```
+
+For commands targeting a file directly, use its absolute quoted path.
