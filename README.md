@@ -12,6 +12,10 @@ projects through a web dashboard, and securely bring their own AI-provider keys.
 - **Security:** signed interactions, encrypted BYOK credentials, per-tenant
   isolation, atomic rate limits, and idempotent command handling.
 
+> **Setting up the bot on your Discord server?** See the
+> [Setup Guide](docs/SETUP.md) — a step-by-step admin onboarding walkthrough.
+> The sections below are for deploying/operating the hosted service itself.
+
 ```mermaid
 flowchart LR
   Admin["Server admin"] --> Dashboard["Setup dashboard"]

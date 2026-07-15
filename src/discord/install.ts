@@ -30,9 +30,17 @@ interface DiscordGuild {
 export async function listManageableGuilds(
   providerToken: string,
 ): Promise<ManageableGuild[]> {
-  const response = await fetch(`${DISCORD_API}/users/@me/guilds`, {
-    headers: { authorization: `Bearer ${providerToken}` },
-  });
+  const response = await fetchGuildsWithRetry(providerToken);
+  if (response.status === 429) {
+    throw new Error(
+      "Discord is rate-limiting the server list. Wait a moment and try again.",
+    );
+  }
+  if (response.status === 401) {
+    throw new Error(
+      "Your Discord session expired. Sign out and sign in again to refresh access.",
+    );
+  }
   if (!response.ok) {
     throw new Error(`Discord guild lookup failed: ${response.status}`);
   }
@@ -48,6 +56,25 @@ export async function listManageableGuilds(
       );
     })
     .map((guild) => ({ id: guild.id, name: guild.name, icon: guild.icon }));
+}
+
+/**
+ * Discord aggressively rate-limits `/users/@me/guilds`. Retry a couple of times
+ * honoring the `Retry-After` header (capped) before giving up.
+ */
+async function fetchGuildsWithRetry(providerToken: string): Promise<Response> {
+  let response = await fetch(`${DISCORD_API}/users/@me/guilds`, {
+    headers: { authorization: `Bearer ${providerToken}` },
+  });
+  for (let attempt = 0; attempt < 2 && response.status === 429; attempt++) {
+    const retryAfter = Number(response.headers.get("retry-after") ?? "1");
+    const delayMs = Math.min(Number.isFinite(retryAfter) ? retryAfter : 1, 5) * 1000;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    response = await fetch(`${DISCORD_API}/users/@me/guilds`, {
+      headers: { authorization: `Bearer ${providerToken}` },
+    });
+  }
+  return response;
 }
 
 export async function canManageGuild(

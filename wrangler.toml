@@ -22,12 +22,12 @@ not_found_handling = "single-page-application"
 #   SUPABASE_SERVICE_ROLE_KEY
 #   CREDENTIAL_ENCRYPTION_KEYS   (e.g. "1:<base64 32-byte key>")
 [vars]
-DISCORD_PUBLIC_KEY = "replace-with-your-application-public-key"
-DISCORD_APPLICATION_ID = "replace-with-your-application-id"
-DISCORD_CLIENT_ID = "replace-with-your-application-id"
-SUPABASE_URL = "https://your-project.supabase.co"
-SUPABASE_ANON_KEY = "replace-with-your-supabase-anon-key"
-PUBLIC_BASE_URL = "https://discord-agent-bot.example.workers.dev"
+DISCORD_PUBLIC_KEY = "68a1bcf5f4cd81dfedf9709096c6779b6d250c9e025db90953602c185ea99be3"
+DISCORD_APPLICATION_ID = "1527007131084132645"
+DISCORD_CLIENT_ID = "1527007131084132645"
+SUPABASE_URL = "https://eurnmwsqxegmgdxrkuol.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_LKFeOEu0EklEj9IajeNzsg_5bVZXtdf"
+PUBLIC_BASE_URL = "https://discord-agent-bot.d-az0617.workers.dev"
 NEW_AGENTS_PER_USER_PER_HOUR = "5"
 POLL_INTERVAL_MS = "5000"
 AGENT_TIMEOUT_MINUTES = "120"
