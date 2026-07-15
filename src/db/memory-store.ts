@@ -215,7 +215,15 @@ export class InMemoryStore implements DataStore {
     orgId: string,
     contextId: string,
     projectName: string,
+    expectedExpiresAtMs?: number,
   ): Promise<void> {
-    this.locks.delete(this.lockKey(orgId, contextId, projectName));
+    const key = this.lockKey(orgId, contextId, projectName);
+    if (
+      expectedExpiresAtMs !== undefined &&
+      this.locks.get(key) !== expectedExpiresAtMs
+    ) {
+      return;
+    }
+    this.locks.delete(key);
   }
 }

@@ -27,5 +27,6 @@ export interface AdminStore {
   deleteProject(orgId: string, name: string): Promise<void>;
 
   upsertCredential(credential: ProviderCredential): Promise<void>;
+  deleteCredential(orgId: string, providerId: string): Promise<void>;
   listConfiguredProviderIds(orgId: string): Promise<string[]>;
 }

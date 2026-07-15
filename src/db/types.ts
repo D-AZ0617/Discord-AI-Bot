@@ -139,9 +139,14 @@ export interface DataStore {
     projectName: string,
     expiresAtMs: number,
   ): Promise<boolean>;
+  // Releasing with `expectedExpiresAtMs` only removes the lock if it still holds
+  // that exact expiry, which acts as an ownership token: a workflow won't
+  // release a lock a newer run has since re-acquired. Omit it to force-release
+  // (used by the cancel command to unstick a channel).
   releaseContextLock(
     orgId: string,
     contextId: string,
     projectName: string,
+    expectedExpiresAtMs?: number,
   ): Promise<void>;
 }

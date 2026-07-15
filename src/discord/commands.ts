@@ -32,6 +32,20 @@ function simpleCommand(name: string, description: string) {
   return { name, description, dm_permission: false };
 }
 
+const projectOption = [
+  {
+    name: "project",
+    description: "Project slug (normally inferred from the channel)",
+    type: ApplicationCommandOptionType.STRING,
+    required: false,
+    autocomplete: true,
+  },
+];
+
+function cancelCommand(name: string, description: string) {
+  return { name, description, options: projectOption, dm_permission: false };
+}
+
 export const commandDefinitions = [
   promptCommand(
     "agent",
@@ -43,6 +57,10 @@ export const commandDefinitions = [
     "Show recent agents and runs in this channel or thread",
   ),
   simpleCommand("agent-projects", "List AI agent projects you can access"),
+  cancelCommand(
+    "agent-cancel",
+    "Cancel the agent currently running in this channel",
+  ),
   promptCommand("cursor", "Start an agent or continue this thread's agent"),
   promptCommand("cursor-agent", "Always start a new Cursor agent"),
   simpleCommand(
@@ -50,9 +68,14 @@ export const commandDefinitions = [
     "Show recent agents and runs in this channel or thread",
   ),
   simpleCommand("cursor-projects", "List agent projects you can access"),
+  cancelCommand(
+    "cursor-cancel",
+    "Cancel the agent currently running in this channel",
+  ),
 ];
 
 export const PROMPT_COMMANDS = new Set(["agent", "cursor"]);
 export const NEW_AGENT_COMMANDS = new Set(["agent-new", "cursor-agent"]);
 export const STATUS_COMMANDS = new Set(["agent-status", "cursor-status"]);
 export const PROJECTS_COMMANDS = new Set(["agent-projects", "cursor-projects"]);
+export const CANCEL_COMMANDS = new Set(["agent-cancel", "cursor-cancel"]);

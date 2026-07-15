@@ -14,6 +14,7 @@ class_name = "RunAgentWorkflow"
 directory = "./dashboard"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+html_handling = "none"
 
 # Non-secret configuration. Replace the placeholder values for your deployment.
 # Secrets are NOT stored here -- set them with `wrangler secret put <NAME>`:

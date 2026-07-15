@@ -6,6 +6,7 @@ export interface ProjectConfig {
   allowedRoleIds: string[];
   provider: string;
   providerOptions: Record<string, unknown>;
+  /** Repo to work on. Empty for chat providers that don't use a repository. */
   repoUrl: string;
   defaultBranch?: string;
   autoCreatePR: boolean;
@@ -37,15 +38,22 @@ function validateProject(
 
   const name = readString(raw.name, `${path}.name`, errors);
   const guildId = readString(raw.guildId, `${path}.guildId`, errors);
-  const repoUrl = readString(raw.repoUrl, `${path}.repoUrl`, errors);
+  // Repo is optional at the schema level (chat providers don't use one); the
+  // provider registry enforces whether a given provider requires it.
+  const repoUrl =
+    typeof raw.repoUrl === "string" ? raw.repoUrl.trim() : "";
   const provider =
     raw.provider === undefined
       ? "cursor"
       : readString(raw.provider, `${path}.provider`, errors);
-  const channelIds =
+  const rawChannelIds =
     raw.channelIds === undefined
       ? []
       : readStringArray(raw.channelIds, `${path}.channelIds`, errors);
+  // Treat the server (guild) ID entered in the channels field as "whole server".
+  // Admins routinely paste the server ID here expecting it to mean everywhere,
+  // which would otherwise map the project to a channel that never exists.
+  const channelIds = rawChannelIds.filter((id) => id !== guildId);
   const allowedRoleIds = readStringArray(
     raw.allowedRoleIds,
     `${path}.allowedRoleIds`,

@@ -1,7 +1,9 @@
 import type { AgentProviderRegistry } from "../agents/registry.js";
 import type { Env, RuntimeConfig } from "../env.js";
-import type { DataStore, StoredProject } from "../db/types.js";
+import type { DataStore, StoredProject, StoredRun } from "../db/types.js";
+import { isTerminalStatus } from "../agents/types.js";
 import {
+  CANCEL_COMMANDS,
   NEW_AGENT_COMMANDS,
   PROJECTS_COMMANDS,
   PROMPT_COMMANDS,
@@ -12,6 +14,7 @@ import {
   callerRoleIds,
   callerUserId,
   callerUsername,
+  deferredEphemeral,
   deferredPublic,
   ephemeralEmbed,
   ephemeralMessage,
@@ -25,7 +28,13 @@ import {
   resolveProjectAccess,
 } from "../security/access.js";
 import { StartRateLimiter } from "../security/rate-limit.js";
-import { truncate } from "./responses.js";
+import { runEmbed, truncate } from "./responses.js";
+import { loadKeyRing } from "../credentials/encrypt.js";
+import { CredentialResolver } from "../credentials/resolver.js";
+import {
+  editChannelMessage,
+  editOriginalInteractionResponse,
+} from "../discord/rest.js";
 import type { RunAgentParams } from "../workflows/run-agent.js";
 
 const BRAND_COLOR = 0x5865f2;
@@ -43,6 +52,7 @@ export class CommandRouter {
     private readonly store: DataStore,
     private readonly registry: AgentProviderRegistry,
     private readonly config: RuntimeConfig,
+    private readonly ctx?: ExecutionContext,
   ) {
     this.limiter = new StartRateLimiter(store, config.newAgentsPerUserPerHour);
   }
@@ -53,6 +63,7 @@ export class CommandRouter {
     if (NEW_AGENT_COMMANDS.has(name)) return this.handlePrompt(interaction, true);
     if (STATUS_COMMANDS.has(name)) return this.handleStatus(interaction);
     if (PROJECTS_COMMANDS.has(name)) return this.handleProjects(interaction);
+    if (CANCEL_COMMANDS.has(name)) return this.handleCancel(interaction);
     return ephemeralMessage("Unknown command.");
   }
 
@@ -182,6 +193,7 @@ export class CommandRouter {
       routeChannelId: routeChannelId(interaction),
       prompt,
       forceNew,
+      lockExpiry,
       existingAgentId: existing?.agentId ?? null,
       userId,
       username: callerUsername(interaction),
@@ -283,6 +295,151 @@ export class CommandRouter {
       description: truncate(lines.join("\n"), 4000),
       color: BRAND_COLOR,
     });
+  }
+
+  /**
+   * Cancel the agent currently running in this channel. Cancellation touches the
+   * provider (a network call) and a Discord edit, which can exceed Discord's 3s
+   * interaction budget, so we defer immediately and finish the work in the
+   * background, then edit the ephemeral reply with the outcome.
+   */
+  private async handleCancel(
+    interaction: DiscordInteraction,
+  ): Promise<Response> {
+    const guildId = interaction.guild_id ?? null;
+    if (!guildId) {
+      return ephemeralMessage("This bot only works inside a Discord server.");
+    }
+    const fresh = await this.store.markInteractionProcessed(interaction.id);
+    if (!fresh) return deferredEphemeral();
+
+    if (!this.ctx) {
+      // No background context (e.g. tests): run inline.
+      return ephemeralMessage(await this.performCancel(interaction, guildId));
+    }
+
+    this.ctx.waitUntil(
+      (async () => {
+        let summary: string;
+        try {
+          summary = await this.performCancel(interaction, guildId);
+        } catch (error) {
+          console.error("Cancel failed", safeError(error));
+          summary =
+            "Something went wrong cancelling the agent. The channel lock was left in place; try `/agent-cancel` again shortly.";
+        }
+        await editOriginalInteractionResponse(
+          interaction.application_id,
+          interaction.token,
+          { content: summary },
+        ).catch(() => {});
+      })(),
+    );
+    return deferredEphemeral();
+  }
+
+  private async performCancel(
+    interaction: DiscordInteraction,
+    guildId: string,
+  ): Promise<string> {
+    const installation = await this.store.getInstallationByGuild(guildId);
+    if (!installation) return this.setupHint();
+
+    const guildProjects = await this.store.listProjectsByGuild(guildId);
+    const access = resolveProjectAccess(guildProjects, {
+      guildId,
+      routeChannelId: routeChannelId(interaction),
+      roleIds: new Set(callerRoleIds(interaction)),
+      requestedProject: getStringOption(interaction, "project"),
+    });
+    if (!access.allowed) return access.message;
+    const project = access.project;
+    const contextId = interaction.channel_id ?? routeChannelId(interaction);
+
+    const runs = await this.store.listRunsForContext(
+      installation.orgId,
+      contextId,
+    );
+    const active = runs.find(
+      (run: StoredRun) =>
+        run.projectName === project.name &&
+        run.providerId === project.provider &&
+        !isTerminalStatus(run.status),
+    );
+
+    if (!active) {
+      // Nothing running, but the channel may be stuck on a stale lock. Clearing
+      // it (force release) lets the user start a fresh prompt immediately.
+      await this.store.releaseContextLock(
+        installation.orgId,
+        contextId,
+        project.name,
+      );
+      return "No agent is currently running here. Cleared any stale lock — you can start a new prompt.";
+    }
+
+    let providerNote = "";
+    try {
+      if (this.registry.has(project.provider)) {
+        const credential = await this.store.getProviderCredential(
+          installation.orgId,
+          project.provider,
+        );
+        if (credential) {
+          const resolver = new CredentialResolver(
+            this.store,
+            this.registry,
+            await loadKeyRing(this.env.CREDENTIAL_ENCRYPTION_KEYS),
+          );
+          const provider = await resolver.providerFor(
+            installation.orgId,
+            project.provider,
+          );
+          if (provider.cancelRun) {
+            await provider.cancelRun(active.agentId, active.runId);
+          }
+          if (active.discordMessageId) {
+            const embed = runEmbed(
+              {
+                id: active.runId,
+                agentId: active.agentId,
+                status: "CANCELLED",
+                createdAt: new Date(active.createdAt).toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+              project,
+              this.registry.get(project.provider).displayName,
+              provider.agentUrl(active.agentId),
+            );
+            await editChannelMessage(
+              this.env.DISCORD_BOT_TOKEN,
+              active.discordChannelId,
+              active.discordMessageId,
+              { embeds: [embed] },
+            ).catch(() => {});
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Provider cancel failed", safeError(error));
+      providerNote =
+        " The provider could not confirm cancellation, but the channel is unlocked.";
+    }
+
+    await this.store.updateRun(
+      installation.orgId,
+      active.runId,
+      "CANCELLED",
+      active.result ?? null,
+      active.prUrl ?? null,
+    );
+    await this.store.releaseContextLock(
+      installation.orgId,
+      contextId,
+      project.name,
+    );
+
+    return `Cancelled the running agent for **${project.displayName ?? project.name}**.${providerNote} You can start a new prompt now.`;
   }
 }
 

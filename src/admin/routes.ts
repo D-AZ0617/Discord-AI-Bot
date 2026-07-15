@@ -10,6 +10,7 @@ import {
   canManageGuild,
   listManageableGuilds,
 } from "../discord/install.js";
+import { fetchGuildChannels, fetchGuildRoles } from "../discord/guild.js";
 import type { Env } from "../env.js";
 
 function json(body: unknown, status = 200): Response {
@@ -58,7 +59,33 @@ export async function handleAdminRequest(
       const providerToken = request.headers.get("x-discord-provider-token");
       if (!providerToken) return json({ error: "Missing Discord token" }, 400);
       const guilds = await listManageableGuilds(providerToken);
-      return json({ guilds });
+      const orgs = await store.listOrgsForUser(identity.discordUserId);
+      const installations = (
+        await Promise.all(orgs.map((org) => store.listInstallationsForOrg(org.id)))
+      ).flat();
+      const orgByGuild = new Map(
+        installations.map((installation) => [
+          installation.guildId,
+          installation.orgId,
+        ]),
+      );
+      const guildsWithStatus = await Promise.all(
+        guilds.map(async (guild) => {
+          const orgId = orgByGuild.get(guild.id) ?? null;
+          if (!orgId) return { ...guild, orgId: null };
+          try {
+            await fetchGuildRoles(env.DISCORD_BOT_TOKEN, guild.id);
+            return { ...guild, orgId };
+          } catch {
+            // A stale database installation is not enough to call a server
+            // configured; the bot must still be a member of the Discord guild.
+            return { ...guild, orgId: null };
+          }
+        }),
+      );
+      return json({
+        guilds: guildsWithStatus,
+      });
     }
 
     if (path === "/api/install" && method === "POST") {
@@ -72,6 +99,17 @@ export async function handleAdminRequest(
       const manage = await canManageGuild(providerToken, guildId);
       if (!manage.ok) {
         return json({ error: "You cannot manage that server." }, 403);
+      }
+      try {
+        await fetchGuildRoles(env.DISCORD_BOT_TOKEN, guildId);
+      } catch {
+        return json(
+          {
+            error:
+              "Relay is not installed in that server yet. Click “Add to Discord,” install Relay, then try Configure again.",
+          },
+          409,
+        );
       }
 
       const existing = await store.getInstallationByGuild(guildId);
@@ -90,6 +128,42 @@ export async function handleAdminRequest(
 
     // Remaining routes operate on an org the caller must belong to.
     const orgId = url.searchParams.get("orgId") ?? undefined;
+    if (path === "/api/guild-meta" && method === "GET") {
+      const org = await requireMember(store, identity, orgId);
+      if (!org.ok) return org.response;
+      const guildId = url.searchParams.get("guildId") ?? "";
+      const installation = await store.getInstallationByGuild(guildId);
+      if (!installation || installation.orgId !== org.orgId) {
+        return json({ error: "That guild is not installed under this org." }, 403);
+      }
+      const [rolesResult, channelsResult] = await Promise.allSettled([
+        fetchGuildRoles(env.DISCORD_BOT_TOKEN, guildId),
+        fetchGuildChannels(env.DISCORD_BOT_TOKEN, guildId),
+      ]);
+      if (rolesResult.status === "rejected" && channelsResult.status === "rejected") {
+        return json(
+          {
+            error:
+              "Relay could not access this server. Add Relay to the server, then reload this page.",
+          },
+          502,
+        );
+      }
+      const warnings = [
+        ...(rolesResult.status === "rejected"
+          ? ["Relay could not load server roles. Check the bot installation and permissions."]
+          : []),
+        ...(channelsResult.status === "rejected"
+          ? ["Relay could not load server channels. Check the bot's channel visibility."]
+          : []),
+      ];
+      return json({
+        roles: rolesResult.status === "fulfilled" ? rolesResult.value : [],
+        channels: channelsResult.status === "fulfilled" ? channelsResult.value : [],
+        warnings,
+      });
+    }
+
     if (path === "/api/projects" && method === "GET") {
       const org = await requireMember(store, identity, orgId);
       if (!org.ok) return org.response;
@@ -126,6 +200,15 @@ export async function handleAdminRequest(
       const org = await requireMember(store, identity, String(body.orgId ?? ""));
       if (!org.ok) return org.response;
       return handleCredentialUpsert(env, store, org.orgId, body);
+    }
+
+    if (path === "/api/credentials" && method === "DELETE") {
+      const org = await requireMember(store, identity, orgId);
+      if (!org.ok) return org.response;
+      const providerId = url.searchParams.get("providerId");
+      if (!providerId) return json({ error: "providerId is required" }, 400);
+      await store.deleteCredential(org.orgId, providerId);
+      return json({ ok: true });
     }
 
     if (path === "/api/credentials/test" && method === "POST") {

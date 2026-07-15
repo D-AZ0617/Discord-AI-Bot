@@ -34,7 +34,8 @@ export interface CreatedAgent {
 
 export interface CreateAgentInput {
   prompt: string;
-  repoUrl: string;
+  /** Repository to work on. Omitted for chat providers that don't use a repo. */
+  repoUrl?: string;
   defaultBranch?: string;
   name?: string;
   autoCreatePR: boolean;
@@ -53,8 +54,14 @@ export interface AgentProvider {
   readonly capabilities: AgentProviderCapabilities;
 
   createAgent(input: CreateAgentInput): Promise<CreatedAgent>;
-  createRun(agentId: string, prompt: string): Promise<AgentRun>;
+  createRun(
+    agentId: string,
+    prompt: string,
+    providerOptions?: Readonly<Record<string, unknown>>,
+  ): Promise<AgentRun>;
   getRun(agentId: string, runId: string): Promise<AgentRun>;
+  /** Cancel an active run. Should be a no-op if the run is already terminal. */
+  cancelRun?(agentId: string, runId: string): Promise<void>;
   agentUrl(agentId: string): string | undefined;
   errorForUser(error: unknown): string;
   /** Optionally verify the configured credential (used by the dashboard). */

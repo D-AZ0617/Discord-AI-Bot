@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Setup Guide · Relay</title>
+    <link rel="icon" type="image/png" href="/relay-wordmark.png" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">
+        <img src="/relay-wordmark.png" alt="Relay" class="brand-logo" />
+      </a>
+      <div class="account">
+        <a class="nav-link" href="/">Dashboard</a>
+      </div>
+    </header>
+
+    <main class="container guide">
+      <section class="card">
+        <h1>Setup Guide</h1>
+        <p>
+          Add <strong>Relay</strong> to your Discord server and let your team run
+          Cursor cloud agents on your GitHub repos — or chat with ChatGPT, Gemini,
+          and Claude — using <code>/agent</code>. Setup is admin-only and one-time
+          (about 5 minutes). Regular members don't set up anything — they just type
+          <code>/agent</code>.
+        </p>
+        <div class="callout">
+          <strong>What this bot does:</strong> it runs
+          <a href="https://cursor.com" target="_blank" rel="noopener">Cursor Cloud Agents</a>
+          that clone a GitHub repo, work on it, and can open pull requests — all
+          from Discord. So you'll connect a Cursor API key and at least one repo.
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>What you'll need</h2>
+        <ul>
+          <li><strong>Manage Server</strong> permission on your Discord server.</li>
+          <li>An API key for at least one AI provider (bring your own):
+            <ul>
+              <li><strong>Cursor</strong> for cloud agents that work on a repo and open PRs — needs a
+                <a href="https://cursor.com" target="_blank" rel="noopener">Cursor</a> API key and a GitHub repo connected to Cursor.</li>
+              <li><strong>OpenAI (ChatGPT)</strong>, <strong>Google Gemini</strong>,
+                <strong>Anthropic (Claude)</strong>, or <strong>OpenRouter</strong>
+                (many free models) for chat answers in Discord — no repo required.</li>
+            </ul>
+          </li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Step 1 — Add the bot to your server</h2>
+        <ul>
+          <li>On the <a href="/">dashboard</a>, click <strong>Sign in with Discord</strong> and authorize.</li>
+          <li>Find your server and click <strong>Add to Discord</strong>. Relay prefills that server for you; approve the install to continue setup automatically.</li>
+          <li>Servers where Relay is already installed show <strong>Configure</strong> instead.</li>
+        </ul>
+
+        <h2>Step 2 — Connect Cursor to GitHub (once)</h2>
+        <p>Cursor's cloud agent needs access to your repo to clone it and open PRs.</p>
+        <ul>
+          <li>Go to <a href="https://cursor.com/dashboard" target="_blank" rel="noopener">cursor.com/dashboard</a> → <strong>Integrations → GitHub</strong>.</li>
+          <li>Install/authorize the <strong>Cursor GitHub App</strong> on the account/org that owns your repo.</li>
+          <li>Grant access to the repo(s) you'll use (or "All repositories").</li>
+        </ul>
+
+        <h2>Step 3 — Add an AI provider key</h2>
+        <p>On the dashboard, select your server, then under <strong>AI provider keys</strong>
+          choose a provider, paste your key, click <strong>Save key</strong>, then
+          <strong>Test connection</strong> (should say <strong>Connection OK</strong>).
+          Add a key for each AI you want to use.</p>
+        <table>
+          <tr><th>Provider</th><th>Where to get the key</th></tr>
+          <tr><td>Cursor Cloud Agents</td><td>cursor.com/dashboard → Settings → API Keys (starts with <code>key_</code>)</td></tr>
+          <tr><td>OpenAI (ChatGPT)</td><td>platform.openai.com → API keys</td></tr>
+          <tr><td>Google Gemini</td><td>aistudio.google.com → Get API key</td></tr>
+          <tr><td>Anthropic (Claude)</td><td>console.anthropic.com → API keys</td></tr>
+          <tr><td>OpenRouter (free models)</td><td>openrouter.ai → Keys</td></tr>
+        </table>
+        <div class="callout">Your key is encrypted before storage and never displayed again.</div>
+      </section>
+
+      <section class="card">
+        <h2>Step 4 — Create a project</h2>
+        <p>A "project" maps an AI (and who can use it) to your server. Pick a
+          <strong>Provider</strong> first — the form then shows the right fields.
+          Add as many projects as you like.</p>
+        <table>
+          <tr><th>Field</th><th>What to enter</th></tr>
+          <tr><td>Project name</td><td>defaults to the selected AI provider's name. You can replace it with any friendly label; Relay creates the internal project ID automatically.</td></tr>
+          <tr><td>Provider</td><td>choose Cursor (repo work) or a chat model (ChatGPT, Gemini, Claude, OpenRouter)</td></tr>
+          <tr><td>GitHub repo URL <em>(Cursor)</em></td><td><code>https://github.com/owner/repo</code> (exact form, no extra path)</td></tr>
+          <tr><td>Default branch <em>(Cursor)</em></td><td>optional, e.g. <code>main</code></td></tr>
+          <tr><td>Model <em>(chat)</em></td><td>pick a suggested model or type any model id the provider supports</td></tr>
+          <tr><td>Channels</td><td>leave all unchecked = whole server, or pick specific channels</td></tr>
+          <tr><td>Allowed roles</td><td>check at least one role allowed to use the bot</td></tr>
+          <tr><td>Auto-create pull requests <em>(Cursor)</em></td><td>on if you want agents to open PRs</td></tr>
+        </table>
+
+        <h3>Getting Discord IDs</h3>
+        <p>Enable <strong>User Settings → Advanced → Developer Mode</strong>, then:</p>
+        <ul>
+          <li><strong>Role ID:</strong> Server Settings → Roles → right-click a role → <strong>Copy Role ID</strong>.</li>
+          <li><strong>Channel ID:</strong> right-click a channel → <strong>Copy Channel ID</strong>.</li>
+        </ul>
+        <div class="callout warn">
+          <strong>@everyone doesn't work as an allowed role.</strong> Discord never
+          lists the @everyone role on members, so it can't be matched. To allow your
+          whole team, create a real role (e.g. <code>AI Access</code>), assign it to
+          members, and use that role's ID.
+        </div>
+
+        <h3>Multiple repos</h3>
+        <p>Create one project per repo. Members choose which repo by:</p>
+        <ul>
+          <li><strong>Channel:</strong> map each repo to its own channel(s), or</li>
+          <li><strong>Command option:</strong> leave channels blank and pass
+            <code>project:</code> (with autocomplete), e.g.
+            <code>/agent prompt: ... project: api</code>.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Step 5 — Use it</h2>
+        <p>In a mapped channel (with your allowed role):</p>
+        <p><code>/agent prompt: summarize what this repository does</code></p>
+        <p>You'll see a <strong>Started</strong> embed that updates to
+          <strong>Running</strong> → <strong>Finished</strong>.</p>
+        <table>
+          <tr><th>Command</th><th>What it does</th></tr>
+          <tr><td><code>/agent prompt:&lt;text&gt; [project:&lt;slug&gt;]</code></td><td>Start, or continue this channel's agent</td></tr>
+          <tr><td><code>/agent-new prompt:&lt;text&gt;</code></td><td>Always start a fresh agent</td></tr>
+          <tr><td><code>/agent-cancel</code></td><td>Cancel the agent running in this channel and unlock it</td></tr>
+          <tr><td><code>/agent-status</code></td><td>Recent agents/runs in this channel/thread</td></tr>
+          <tr><td><code>/agent-projects</code></td><td>Projects you can access</td></tr>
+        </table>
+        <p><code>/cursor*</code> are aliases for the same commands.</p>
+      </section>
+
+      <section class="card">
+        <h2>Troubleshooting</h2>
+        <table>
+          <tr><th>Message</th><th>Cause &amp; fix</th></tr>
+          <tr><td>"This server is not configured yet."</td><td>Finish Steps 1–4 in the dashboard.</td></tr>
+          <tr><td>"You do not have an allowed role…"</td><td>Your role isn't in the project's allowed roles. @everyone won't work — use a real role ID.</td></tr>
+          <tr><td>"No cursor API key is configured…"</td><td>Add and save your Cursor key (Step 3).</td></tr>
+          <tr><td>Save says "Invalid project"</td><td>Repo URL must be <code>https://github.com/owner/repo</code>; role/channel IDs must be numeric Discord IDs (17–20 digits).</td></tr>
+          <tr><td>"The SCM integration does not have access to repository…"</td><td>Connect the Cursor GitHub App to that repo (Step 2).</td></tr>
+          <tr><td>"Discord is rate-limiting the server list."</td><td>Wait ~60s and refresh; avoid rapid re-sign-ins.</td></tr>
+        </table>
+      </section>
+
+      <section class="card">
+        <h2>Limits &amp; notes</h2>
+        <ul>
+          <li>Each user can start a limited number of <strong>new</strong> agents per hour (default 5); follow-ups are unlimited.</li>
+          <li>One active run per channel+project at a time — wait for it to finish, or run <code>/agent-cancel</code> to stop it and unlock the channel.</li>
+          <li>Follow-up prompts in the same channel continue the same agent; use <code>/agent-new</code> to force a fresh one.</li>
+        </ul>
+        <div class="actions">
+          <a href="/"><button class="btn-primary">Back to dashboard</button></a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

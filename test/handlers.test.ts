@@ -211,4 +211,54 @@ describe("CommandRouter.handleCommand", () => {
       await store.acquireContextLock("org-a", "chan-1", "website", Date.now() + 1000),
     ).toBe(true);
   });
+
+  const cancelInteraction = (overrides: Partial<DiscordInteraction> = {}) =>
+    interaction({
+      id: "cancel-1",
+      data: { id: "cmd", name: "agent-cancel", options: [] },
+      ...overrides,
+    });
+
+  it("clears a stale lock when nothing is running", async () => {
+    await store.acquireContextLock("org-a", "chan-1", "website", Date.now() + 60_000);
+    const body = await bodyOf(await router.handleCommand(cancelInteraction()));
+    expect(body.type).toBe(4);
+    expect(body.data?.content).toMatch(/stale lock/);
+    // Lock released -> a new prompt can acquire it.
+    expect(
+      await store.acquireContextLock("org-a", "chan-1", "website", Date.now() + 1000),
+    ).toBe(true);
+  });
+
+  it("cancels an active run and releases the lock", async () => {
+    await store.setContextAgent({
+      orgId: "org-a",
+      contextId: "chan-1",
+      projectName: "website",
+      providerId: "cursor",
+      agentId: "agent-live",
+      guildId: "guild-a",
+      routeChannelId: "chan-1",
+    });
+    await store.saveRun({
+      orgId: "org-a",
+      runId: "run-live",
+      providerId: "cursor",
+      agentId: "agent-live",
+      contextId: "chan-1",
+      projectName: "website",
+      userId: "user-1",
+      discordChannelId: "chan-1",
+      status: "RUNNING",
+    });
+    await store.acquireContextLock("org-a", "chan-1", "website", Date.now() + 60_000);
+
+    const body = await bodyOf(await router.handleCommand(cancelInteraction()));
+    expect(body.type).toBe(4);
+    expect(body.data?.content).toMatch(/Cancelled the running agent/);
+    expect((await store.getRun("org-a", "run-live"))?.status).toBe("CANCELLED");
+    expect(
+      await store.acquireContextLock("org-a", "chan-1", "website", Date.now() + 1000),
+    ).toBe(true);
+  });
 });

@@ -20,6 +20,9 @@ export class CursorAgentProvider implements AgentProvider {
   constructor(private readonly client: CursorClient) {}
 
   async createAgent(input: CreateAgentInput): Promise<CreatedAgent> {
+    if (!input.repoUrl) {
+      throw new Error("Cursor Cloud Agents require a GitHub repository URL.");
+    }
     return this.client.createAgent({
       prompt: input.prompt,
       repoUrl: input.repoUrl,
@@ -30,11 +33,17 @@ export class CursorAgentProvider implements AgentProvider {
   }
 
   createRun(agentId: string, prompt: string): Promise<AgentRun> {
+    // Cursor binds the repo/model at agent creation, so follow-ups ignore
+    // per-project options.
     return this.client.createRun(agentId, prompt);
   }
 
   getRun(agentId: string, runId: string): Promise<AgentRun> {
     return this.client.getRun(agentId, runId);
+  }
+
+  cancelRun(agentId: string, runId: string): Promise<void> {
+    return this.client.cancelRun(agentId, runId);
   }
 
   agentUrl(agentId: string): string {
@@ -54,6 +63,8 @@ export class CursorAgentProvider implements AgentProvider {
 export const cursorProviderDefinition: ProviderDefinition = {
   id: "cursor",
   displayName: "Cursor Cloud Agents",
+  kind: "repo",
+  apiKeyHint: "cursor.com/dashboard → Settings → API Keys",
   capabilities: {
     durableAgents: true,
     repositoryAccess: true,

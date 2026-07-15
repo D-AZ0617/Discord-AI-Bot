@@ -65,6 +65,23 @@ export class CursorClient {
     );
   }
 
+  /**
+   * Cancel the active run for an agent. A run that is already terminal (or was
+   * never active) returns 409 `run_not_cancellable`; we treat that as success
+   * because the desired end state — the run is not running — already holds.
+   */
+  async cancelRun(agentId: string, runId: string): Promise<void> {
+    try {
+      await this.request<{ id: string }>(
+        `/v1/agents/${encodeURIComponent(agentId)}/runs/${encodeURIComponent(runId)}/cancel`,
+        { method: "POST" },
+      );
+    } catch (error) {
+      if (error instanceof CursorApiError && error.status === 409) return;
+      throw error;
+    }
+  }
+
   async verifyKey(): Promise<void> {
     await this.request<unknown>("/v1/me");
   }

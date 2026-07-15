@@ -8,6 +8,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "register-commands": "tsx scripts/register-commands.ts",
+    "configure-discord-profile": "tsx scripts/configure-discord-profile.ts",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run",

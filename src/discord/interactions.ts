@@ -158,6 +158,13 @@ export function deferredPublic(): Response {
   });
 }
 
+export function deferredEphemeral(): Response {
+  return jsonResponse({
+    type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    data: { flags: EPHEMERAL_FLAG },
+  });
+}
+
 export function autocompleteResult(
   choices: Array<{ name: string; value: string }>,
 ): Response {

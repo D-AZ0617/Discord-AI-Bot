@@ -1,8 +1,9 @@
-# Setup Guide — Discord AI Agent Bot
+# Setup Guide — Relay
 
-Add the bot to your Discord server and let your team run Cursor cloud agents on
-your GitHub repos with `/agent`. Setup is **admin-only and one-time** (~5 min).
-Regular members don't set up anything — they just type `/agent`.
+Add **Relay** to your Discord server and let your team run Cursor cloud agents on
+your GitHub repos — or chat with ChatGPT, Gemini, and Claude — with `/agent`.
+Setup is **admin-only and one-time** (~5 min). Regular members don't set up
+anything — they just type `/agent`.
 
 > **What this bot does:** it runs [Cursor Cloud Agents](https://cursor.com) that
 > clone a GitHub repo, work on it, and can open pull requests — all from Discord.
@@ -22,7 +23,9 @@ Regular members don't set up anything — they just type `/agent`.
 
 1. Open the setup dashboard: **https://discord-agent-bot.d-az0617.workers.dev**
 2. Click **Sign in with Discord** and authorize.
-3. Click **Add to Discord**, pick your server, and approve the install.
+3. Find your server and click **Add to Discord**. Relay prefills that server;
+   approve the install to continue setup automatically. Already-installed
+   servers show **Configure** instead.
 
 ## Step 2 — Connect Cursor to GitHub (once)
 
@@ -49,8 +52,7 @@ A "project" maps a repo (and who can use it) to your server. Add as many as you 
 
 | Field | What to enter |
 |---|---|
-| **Slug** | short lowercase id, e.g. `main`, `api` (letters/numbers/hyphens only) |
-| **Display name** | friendly label, e.g. `Main Repo` (optional) |
+| **Project name** | defaults to the selected AI provider's name. You can replace it with any friendly label; Relay creates the internal project ID automatically. |
 | **GitHub repo URL** | `https://github.com/owner/repo` (exact form, no extra path) |
 | **Default branch** | optional, e.g. `main` |
 | **Provider** | leave as `cursor` |
@@ -90,6 +92,7 @@ You'll see a **Started** embed that updates to **Running** → **Finished**.
 |---|---|
 | `/agent prompt:<text> [project:<slug>]` | Start, or continue this channel's agent |
 | `/agent-new prompt:<text> [project:<slug>]` | Always start a fresh agent |
+| `/agent-cancel [project:<slug>]` | Cancel the agent running in this channel and unlock it |
 | `/agent-status` | Recent agents/runs in this channel/thread |
 | `/agent-projects` | Projects you can access |
 
@@ -104,7 +107,7 @@ You'll see a **Started** embed that updates to **Running** → **Finished**.
 | **"This server is not configured yet."** | Finish Steps 1–4 in the dashboard. |
 | **"You do not have an allowed role…"** | Your role isn't in the project's allowed roles. `@everyone` won't work — use a real role ID (see Step 4). |
 | **"No `cursor` API key is configured…"** | Add and save your Cursor key (Step 3). |
-| **Save says "Invalid project"** | Slug must be lowercase; repo URL must be `https://github.com/owner/repo`; role/channel IDs must be numeric Discord IDs (17–20 digits). |
+| **Save says "Invalid project"** | Repo URL must be `https://github.com/owner/repo`; role/channel IDs must be numeric Discord IDs (17–20 digits). |
 | **"The SCM integration does not have access to repository…"** | Connect the Cursor GitHub App to that repo (Step 2). |
 | **"Discord is rate-limiting the server list."** | Wait ~60s and refresh; avoid rapid re-sign-ins. |
 | **Agent starts but errors immediately** | Check the Cursor key is valid and the repo/branch exists and is accessible to Cursor. |

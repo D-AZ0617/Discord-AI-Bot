@@ -3,6 +3,7 @@ import {
   AgentProviderRegistry,
   type DecryptedCredential,
   type ProviderDefinition,
+  type ProviderKind,
 } from "../src/agents/registry.js";
 import { defaultProviderRegistry } from "../src/agents/providers/index.js";
 import type { AgentProvider } from "../src/agents/types.js";
@@ -30,10 +31,12 @@ function fakeProvider(id: string): AgentProvider {
 function definition(
   id: string,
   capabilities: Partial<ProviderDefinition["capabilities"]> = {},
+  kind: ProviderKind = "repo",
 ): ProviderDefinition {
   return {
     id,
     displayName: id,
+    kind,
     capabilities: {
       durableAgents: true,
       repositoryAccess: true,
@@ -74,12 +77,32 @@ describe("AgentProviderRegistry", () => {
     ).toThrow(/Duplicate agent provider/);
   });
 
-  it("flags projects that need capabilities the provider lacks", () => {
+  it("requires a repo for repo providers", () => {
+    const registry = new AgentProviderRegistry([definition("cursor")]);
+    const errors = registry.validateProject(
+      project({ provider: "cursor", repoUrl: "" }),
+    );
+    expect(errors.join("\n")).toMatch(/requires a GitHub repo URL/);
+  });
+
+  it("rejects a repo on chat providers and requires a model", () => {
     const registry = new AgentProviderRegistry([
-      definition("gemini", { repositoryAccess: false }),
+      definition(
+        "openai",
+        { durableAgents: false, repositoryAccess: false, pullRequests: false },
+        "chat",
+      ),
     ]);
-    const errors = registry.validateProject(project({ provider: "gemini" }));
-    expect(errors.join("\n")).toMatch(/does not support repository access/);
+    const withRepo = registry.validateProject(
+      project({ provider: "openai", repoUrl: "https://github.com/x/y" }),
+    );
+    expect(withRepo.join("\n")).toMatch(/does not use a repository/);
+    expect(withRepo.join("\n")).toMatch(/choose a model/);
+
+    const ok = registry.validateProject(
+      project({ provider: "openai", repoUrl: "", providerOptions: { model: "gpt-4o-mini" } }),
+    );
+    expect(ok).toEqual([]);
   });
 
   it("flags projects referencing an unavailable provider", () => {
@@ -88,10 +111,16 @@ describe("AgentProviderRegistry", () => {
     expect(errors.join("\n")).toMatch(/unavailable provider "claude"/);
   });
 
-  it("default registry includes cursor", () => {
+  it("default registry includes cursor and chat providers", () => {
     const registry = defaultProviderRegistry();
     expect(registry.has("cursor")).toBe(true);
+    expect(registry.has("openai")).toBe(true);
+    expect(registry.has("anthropic")).toBe(true);
+    expect(registry.has("google")).toBe(true);
+    expect(registry.has("openrouter")).toBe(true);
     const provider = registry.createProvider("cursor", { apiKey: "key" });
     expect(provider.agentUrl("abc")).toContain("abc");
+    const meta = registry.list();
+    expect(meta.find((m) => m.id === "openai")?.kind).toBe("chat");
   });
 });

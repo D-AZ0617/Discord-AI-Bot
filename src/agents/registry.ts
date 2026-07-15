@@ -12,9 +12,21 @@ export interface DecryptedCredential {
  * (known at startup) and knows how to construct a live, tenant-scoped
  * {@link AgentProvider} from a decrypted credential (built per request).
  */
-export interface ProviderDefinition {
-  readonly id: string;
-  readonly displayName: string;
+/** How a provider is used: `repo` runs cloud agents on a codebase; `chat`
+ * answers prompts with an LLM and needs no repository. */
+export type ProviderKind = "repo" | "chat";
+
+export interface ProviderMetadata {
+  id: string;
+  displayName: string;
+  kind: ProviderKind;
+  /** Suggested model ids for chat providers (admins may type their own). */
+  suggestedModels?: string[];
+  /** Where the admin gets their API key. */
+  apiKeyHint?: string;
+}
+
+export interface ProviderDefinition extends ProviderMetadata {
   readonly capabilities: AgentProviderCapabilities;
   create(credential: DecryptedCredential): AgentProvider;
 }
@@ -75,22 +87,43 @@ export class AgentProviderRegistry {
       );
       return errors;
     }
-    if (!definition.capabilities.durableAgents) {
-      errors.push(
-        `${project.name}: provider ${definition.id} does not support durable follow-up sessions`,
-      );
+
+    if (definition.kind === "repo") {
+      if (!project.repoUrl) {
+        errors.push(`${project.name}: this provider requires a GitHub repo URL`);
+      }
+    } else {
+      // Chat providers don't use a repository or open PRs.
+      if (project.repoUrl) {
+        errors.push(
+          `${project.name}: ${definition.displayName} is a chat model and does not use a repository — leave the repo URL blank`,
+        );
+      }
+      const model = project.providerOptions?.model;
+      if (typeof model !== "string" || !model.trim()) {
+        errors.push(`${project.name}: choose a model for ${definition.displayName}`);
+      }
     }
-    if (!definition.capabilities.repositoryAccess) {
-      errors.push(
-        `${project.name}: provider ${definition.id} does not support repository access`,
-      );
-    }
+
     if (project.autoCreatePR && !definition.capabilities.pullRequests) {
       errors.push(
         `${project.name}: provider ${definition.id} cannot create pull requests`,
       );
     }
     return errors;
+  }
+
+  /** Public-safe provider metadata for the dashboard (no secrets). */
+  list(): ProviderMetadata[] {
+    return [...this.definitions.values()]
+      .map((d) => ({
+        id: d.id,
+        displayName: d.displayName,
+        kind: d.kind,
+        ...(d.suggestedModels ? { suggestedModels: d.suggestedModels } : {}),
+        ...(d.apiKeyHint ? { apiKeyHint: d.apiKeyHint } : {}),
+      }))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
   ids(): string[] {

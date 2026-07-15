@@ -25,19 +25,32 @@ export function runEmbed(
   project: Pick<ProjectConfig, "name" | "displayName">,
   providerDisplayName: string,
   agentUrl?: string,
+  prompt?: string,
+  username?: string,
 ): DiscordEmbed {
   const prUrl = run.git?.branches.find((branch) => branch.prUrl)?.prUrl;
   const branch = run.git?.branches.find((item) => item.branch)?.branch;
 
-  const fields: DiscordEmbed["fields"] = [
-    {
-      name: "Agent ID",
-      value: agentUrl ? `[${run.agentId}](${agentUrl})` : `\`${run.agentId}\``,
-      inline: true,
-    },
-    { name: "Run ID", value: `\`${run.id}\``, inline: true },
-    { name: "Provider", value: providerDisplayName, inline: true },
-  ];
+  // Repo/cloud agents expose an agent URL and git info worth surfacing. Chat
+  // models don't, so we keep their card focused on the answer + which model.
+  const isRepoAgent = Boolean(agentUrl) || Boolean(run.git);
+  const fields: DiscordEmbed["fields"] = isRepoAgent
+    ? [
+        {
+          name: "Agent ID",
+          value: agentUrl ? `[${run.agentId}](${agentUrl})` : `\`${run.agentId}\``,
+          inline: true,
+        },
+        { name: "Run ID", value: `\`${run.id}\``, inline: true },
+        { name: "Provider", value: providerDisplayName, inline: true },
+      ]
+    : [{ name: "Model", value: providerDisplayName, inline: true }];
+  if (prompt) {
+    fields.unshift({
+      name: username ? `${truncate(username, 230)} asked` : "Prompt",
+      value: truncate(prompt, 1024),
+    });
+  }
   if (branch) fields.push({ name: "Branch", value: `\`${branch}\`` });
   if (prUrl) fields.push({ name: "Pull request", value: prUrl });
 

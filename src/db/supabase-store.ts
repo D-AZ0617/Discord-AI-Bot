@@ -331,13 +331,18 @@ export class SupabaseStore implements DataStore, AdminStore {
     orgId: string,
     contextId: string,
     projectName: string,
+    expectedExpiresAtMs?: number,
   ): Promise<void> {
-    const { error } = await this.db
+    let query = this.db
       .from("context_locks")
       .delete()
       .eq("org_id", orgId)
       .eq("context_id", contextId)
       .eq("project_name", projectName);
+    if (expectedExpiresAtMs !== undefined) {
+      query = query.eq("expires_at", expectedExpiresAtMs);
+    }
+    const { error } = await query;
     this.throwIf(error, "releaseContextLock");
   }
 
@@ -434,6 +439,13 @@ export class SupabaseStore implements DataStore, AdminStore {
   }
 
   async upsertProject(project: StoredProject): Promise<void> {
+    // If the repo/provider/branch of an existing project changes, any agents
+    // already mapped to this project point at the *old* repo (cloud agents are
+    // pinned to the repo they were created against). Drop those mappings so the
+    // next prompt starts a fresh agent against the new repo instead of following
+    // up on the stale one.
+    const existing = await this.getProject(project.orgId, project.name);
+
     const { error } = await this.db.from("projects").upsert(
       {
         org_id: project.orgId,
@@ -451,6 +463,27 @@ export class SupabaseStore implements DataStore, AdminStore {
       { onConflict: "org_id,name" },
     );
     this.throwIf(error, "upsertProject");
+
+    if (
+      existing &&
+      (existing.repoUrl !== project.repoUrl ||
+        existing.provider !== project.provider ||
+        existing.defaultBranch !== project.defaultBranch)
+    ) {
+      await this.clearContextAgentsForProject(project.orgId, project.name);
+    }
+  }
+
+  async clearContextAgentsForProject(
+    orgId: string,
+    projectName: string,
+  ): Promise<void> {
+    const { error } = await this.db
+      .from("context_agents")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("project_name", projectName);
+    this.throwIf(error, "clearContextAgentsForProject");
   }
 
   async deleteProject(orgId: string, name: string): Promise<void> {
@@ -476,6 +509,15 @@ export class SupabaseStore implements DataStore, AdminStore {
       { onConflict: "org_id,provider_id" },
     );
     this.throwIf(error, "upsertCredential");
+  }
+
+  async deleteCredential(orgId: string, providerId: string): Promise<void> {
+    const { error } = await this.db
+      .from("provider_credentials")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("provider_id", providerId);
+    this.throwIf(error, "deleteCredential");
   }
 
   async listConfiguredProviderIds(orgId: string): Promise<string[]> {

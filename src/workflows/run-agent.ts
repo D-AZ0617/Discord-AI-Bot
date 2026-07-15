@@ -39,6 +39,8 @@ export interface RunAgentParams {
   routeChannelId: string;
   prompt: string;
   forceNew: boolean;
+  /** Expiry this run set on the context lock; used to release only our own lock. */
+  lockExpiry: number;
   existingAgentId: string | null;
   userId: string;
   username: string;
@@ -83,12 +85,15 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
               const run = await provider.createRun(
                 params.existingAgentId,
                 params.prompt,
+                params.project.providerOptions,
               );
               return { run, agentUrl: provider.agentUrl(params.existingAgentId) };
             }
             const created = await provider.createAgent({
               prompt: params.prompt,
-              repoUrl: params.project.repoUrl,
+              ...(params.project.repoUrl
+                ? { repoUrl: params.project.repoUrl }
+                : {}),
               ...(params.project.defaultBranch
                 ? { defaultBranch: params.project.defaultBranch }
                 : {}),
@@ -113,6 +118,7 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
         params.orgId,
         params.contextId,
         params.project.name,
+        params.lockExpiry,
       );
       return;
     }
@@ -145,7 +151,18 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
       const message = await editOriginalInteractionResponse(
         params.applicationId,
         params.interactionToken,
-        { embeds: [runEmbed(run, params.project, providerDisplayName, agentUrl)] },
+        {
+          embeds: [
+            runEmbed(
+              run,
+              params.project,
+              providerDisplayName,
+              agentUrl,
+              params.prompt,
+              params.username,
+            ),
+          ],
+        },
       );
       await store.setRunMessage(
         params.orgId,
@@ -218,6 +235,7 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
       params.orgId,
       params.contextId,
       params.project.name,
+      params.lockExpiry,
     );
   }
 
@@ -230,7 +248,14 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
   ): Promise<void> {
     const stored = await store.getRun(params.orgId, run.id);
     if (!stored?.discordMessageId) return;
-    const embed = runEmbed(run, params.project, providerDisplayName, agentUrl);
+    const embed = runEmbed(
+      run,
+      params.project,
+      providerDisplayName,
+      agentUrl,
+      params.prompt,
+      params.username,
+    );
     // Use the bot token so edits keep working past the 15-minute interaction
     // token expiry.
     await editChannelMessage(

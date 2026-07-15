@@ -27,6 +27,7 @@ function discordPublicKey(publicKeyHex: string): Promise<CryptoKey> {
 async function handleInteractions(
   request: Request,
   env: Env,
+  ctx: ExecutionContext,
 ): Promise<Response> {
   const signature = request.headers.get("x-signature-ed25519");
   const timestamp = request.headers.get("x-signature-timestamp");
@@ -41,7 +42,7 @@ async function handleInteractions(
 
   const store = new SupabaseStore(createServiceClient(env));
   const registry = defaultProviderRegistry();
-  const router = new CommandRouter(env, store, registry, runtimeConfig(env));
+  const router = new CommandRouter(env, store, registry, runtimeConfig(env), ctx);
 
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     return router.handleCommand(interaction);
@@ -53,11 +54,15 @@ async function handleInteractions(
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/interactions" && request.method === "POST") {
-      return handleInteractions(request, env);
+      return handleInteractions(request, env, ctx);
     }
 
     if (url.pathname === "/health") {
@@ -71,6 +76,7 @@ export default {
           supabaseUrl: env.SUPABASE_URL,
           supabaseAnonKey: env.SUPABASE_ANON_KEY,
           installUrl: `https://discord.com/oauth2/authorize?client_id=${env.DISCORD_CLIENT_ID}&scope=bot+applications.commands&permissions=0`,
+          providers: defaultProviderRegistry().list(),
         }),
         { headers: { "content-type": "application/json" } },
       );

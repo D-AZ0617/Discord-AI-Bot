@@ -1,8 +1,9 @@
-# Discord Agent Bot (Hosted)
+# Relay — Collaborative AI for Discord
 
-One centrally hosted Discord app that lets your team run AI **cloud agents** on
-your codebases from Discord. Admins install a single public bot, configure
-projects through a web dashboard, and securely bring their own AI-provider keys.
+Relay is one centrally hosted Discord app that lets your team run AI **cloud
+agents** on your codebases and chat with top AI models from Discord. Admins
+install a single public bot, configure projects through a web dashboard, and
+securely bring their own AI-provider keys.
 
 - **Runtime:** Cloudflare Workers (Discord HTTP interactions) + Cloudflare
   Workflows (durable agent runs).
