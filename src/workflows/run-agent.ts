@@ -81,7 +81,11 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
         async () => {
           const provider = await resolveProvider();
           try {
-            if (params.existingAgentId && !params.forceNew) {
+            const useFollowUp =
+              Boolean(params.existingAgentId) &&
+              !params.forceNew &&
+              provider.capabilities.durableAgents;
+            if (useFollowUp && params.existingAgentId) {
               const run = await provider.createRun(
                 params.existingAgentId,
                 params.prompt,
@@ -91,9 +95,7 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
             }
             const created = await provider.createAgent({
               prompt: params.prompt,
-              ...(params.project.repoUrl
-                ? { repoUrl: params.project.repoUrl }
-                : {}),
+              repoUrl: params.project.repoUrl,
               ...(params.project.defaultBranch
                 ? { defaultBranch: params.project.defaultBranch }
                 : {}),

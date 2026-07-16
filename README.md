@@ -8,8 +8,8 @@ securely bring their own AI-provider keys.
 - **Runtime:** Cloudflare Workers (Discord HTTP interactions) + Cloudflare
   Workflows (durable agent runs).
 - **Data:** Supabase (Discord OAuth login + PostgreSQL, multi-tenant with RLS).
-- **Providers:** provider-neutral layer with a Cursor Cloud Agents adapter today;
-  Gemini / OpenAI / Anthropic can be added without touching the core.
+- **Providers:** Cursor Cloud Agents (repo + PRs), OpenRouter (read-only
+  codebase Q&A), plus chat adapters for OpenAI / Anthropic / Gemini.
 - **Security:** signed interactions, encrypted BYOK credentials, per-tenant
   isolation, atomic rate limits, and idempotent command handling.
 
@@ -32,16 +32,15 @@ flowchart LR
 ## Commands
 
 `/agent*` are primary; `/cursor*` are aliases. All are registered globally once.
+Each channel has exactly one agent — `/agent` always uses that channel's agent.
 
 | Command | Description |
 | --- | --- |
-| `/agent prompt:<text> [project:<slug>]` | Start a new agent, or continue this channel/thread's agent |
-| `/agent-new prompt:<text> [project:<slug>]` | Always start a fresh agent |
-| `/agent-status` | Recent agents/runs in this channel or thread |
-| `/agent-projects` | Projects you can access |
-
-The channel (or its parent thread) determines the project. A channel with no
-mapping falls back to a single guild-wide project, or asks you to pass `project:`.
+| `/agent prompt:<text>` | Ask this channel's AI agent |
+| `/agent-new prompt:<text>` | Fresh run with this channel's agent |
+| `/agent-status` | Recent runs in this channel or thread |
+| `/agent-list` | Agents you can access |
+| `/agent-cancel` | Cancel the run in this channel |
 
 ## Repository layout
 
@@ -51,7 +50,8 @@ src/
   env.ts                 # Typed bindings + runtime config
   discord/               # Signature verify, interaction types, REST, commands
   bot/                   # Command router + embed builders (no discord.js)
-  agents/                # Provider-neutral contracts + registry + cursor adapter
+  agents/                # Provider-neutral contracts + registry + adapters
+  codebase/              # Public GitHub context for OpenRouter code-chat
   cursor/                # Cursor Cloud Agents HTTP client + error mapping
   credentials/           # AES-256-GCM envelope encryption + resolver (BYOK)
   db/                    # DataStore/AdminStore interfaces, Supabase + in-memory

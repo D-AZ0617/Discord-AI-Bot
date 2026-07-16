@@ -50,6 +50,7 @@ function definition(
 const project = (overrides: Partial<ProjectConfig>): ProjectConfig => ({
   name: "api",
   guildId: "111111111111111111",
+  channelScope: "all",
   channelIds: [],
   allowedRoleIds: ["222222222222222222"],
   provider: "cursor",
@@ -105,22 +106,100 @@ describe("AgentProviderRegistry", () => {
     expect(ok).toEqual([]);
   });
 
+  it("requires a repo and model for code-chat providers", () => {
+    const registry = new AgentProviderRegistry([
+      definition(
+        "codex",
+        { durableAgents: false, repositoryAccess: true, pullRequests: false },
+        "code-chat",
+      ),
+    ]);
+    const missing = registry.validateProject(
+      project({ provider: "codex", repoUrl: "", providerOptions: {} }),
+    );
+    expect(missing.join("\n")).toMatch(/public GitHub repo URL/);
+    expect(missing.join("\n")).toMatch(/choose a model/);
+  });
+
+  it("allows openrouter chat without a repo but requires a model", () => {
+    const registry = defaultProviderRegistry();
+    const missingModel = registry.validateProject(
+      project({ provider: "openrouter", repoUrl: "", providerOptions: {} }),
+    );
+    expect(missingModel.join("\n")).toMatch(/choose a model/);
+
+    const chatOnly = registry.validateProject(
+      project({
+        provider: "openrouter",
+        repoUrl: "",
+        providerOptions: { model: "openrouter/free" },
+        autoCreatePR: false,
+      }),
+    );
+    expect(chatOnly).toEqual([]);
+
+    const withRepo = registry.validateProject(
+      project({
+        provider: "openrouter",
+        repoUrl: "https://github.com/example/api",
+        providerOptions: { model: "openrouter/free" },
+        autoCreatePR: false,
+      }),
+    );
+    expect(withRepo.join("\n")).toMatch(/does not use a repository/);
+  });
+
+  it("requires a repo and model for openrouter-code", () => {
+    const registry = defaultProviderRegistry();
+    const missing = registry.validateProject(
+      project({ provider: "openrouter-code", repoUrl: "", providerOptions: {} }),
+    );
+    expect(missing.join("\n")).toMatch(/public GitHub repo URL/);
+    expect(missing.join("\n")).toMatch(/choose a model/);
+
+    const withPr = registry.validateProject(
+      project({
+        provider: "openrouter-code",
+        repoUrl: "https://github.com/example/api",
+        providerOptions: { model: "openrouter/free" },
+        autoCreatePR: true,
+      }),
+    );
+    expect(withPr.join("\n")).toMatch(/cannot create pull requests/);
+
+    const ok = registry.validateProject(
+      project({
+        provider: "openrouter-code",
+        repoUrl: "https://github.com/example/api",
+        providerOptions: { model: "openrouter/free" },
+        autoCreatePR: false,
+      }),
+    );
+    expect(ok).toEqual([]);
+  });
+
   it("flags projects referencing an unavailable provider", () => {
     const registry = new AgentProviderRegistry([definition("cursor")]);
     const errors = registry.validateProject(project({ provider: "claude" }));
     expect(errors.join("\n")).toMatch(/unavailable provider "claude"/);
   });
 
-  it("default registry includes cursor and chat providers", () => {
+  it("default registry includes cursor, chat, and openrouter variants", () => {
     const registry = defaultProviderRegistry();
     expect(registry.has("cursor")).toBe(true);
     expect(registry.has("openai")).toBe(true);
     expect(registry.has("anthropic")).toBe(true);
     expect(registry.has("google")).toBe(true);
     expect(registry.has("openrouter")).toBe(true);
+    expect(registry.has("openrouter-code")).toBe(true);
     const provider = registry.createProvider("cursor", { apiKey: "key" });
     expect(provider.agentUrl("abc")).toContain("abc");
     const meta = registry.list();
     expect(meta.find((m) => m.id === "openai")?.kind).toBe("chat");
+    expect(meta.find((m) => m.id === "openrouter")?.kind).toBe("chat");
+    expect(meta.find((m) => m.id === "openrouter-code")?.kind).toBe("code-chat");
+    expect(registry.get("openrouter").capabilities.repositoryAccess).toBe(false);
+    expect(registry.get("openrouter-code").capabilities.repositoryAccess).toBe(true);
+    expect(registry.get("openrouter-code").capabilities.pullRequests).toBe(false);
   });
 });

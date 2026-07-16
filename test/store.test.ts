@@ -10,6 +10,7 @@ function seedTwoTenants(): InMemoryStore {
   store.seedInstallation({ orgId: "org-a", guildId: "guild-a" });
   store.seedInstallation({ orgId: "org-b", guildId: "guild-b" });
   const base: Omit<StoredProject, "orgId" | "guildId" | "name"> = {
+    channelScope: "all",
     channelIds: [],
     allowedRoleIds: ["role-1"],
     provider: "cursor",

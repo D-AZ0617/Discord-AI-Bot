@@ -12,9 +12,13 @@ export interface DecryptedCredential {
  * (known at startup) and knows how to construct a live, tenant-scoped
  * {@link AgentProvider} from a decrypted credential (built per request).
  */
-/** How a provider is used: `repo` runs cloud agents on a codebase; `chat`
- * answers prompts with an LLM and needs no repository. */
-export type ProviderKind = "repo" | "chat";
+/**
+ * How a provider is used:
+ * - `repo` — cloud agents that clone a repo and can open PRs (Cursor)
+ * - `chat` — LLM answers with no repository
+ * - `code-chat` — read-only Q&A about a GitHub repo (no writes/PRs)
+ */
+export type ProviderKind = "repo" | "chat" | "code-chat";
 
 export interface ProviderMetadata {
   id: string;
@@ -91,6 +95,16 @@ export class AgentProviderRegistry {
     if (definition.kind === "repo") {
       if (!project.repoUrl) {
         errors.push(`${project.name}: this provider requires a GitHub repo URL`);
+      }
+    } else if (definition.kind === "code-chat") {
+      if (!project.repoUrl) {
+        errors.push(
+          `${project.name}: ${definition.displayName} needs a public GitHub repo URL for codebase Q&A`,
+        );
+      }
+      const model = project.providerOptions?.model;
+      if (typeof model !== "string" || !model.trim()) {
+        errors.push(`${project.name}: choose a model for ${definition.displayName}`);
       }
     } else {
       // Chat providers don't use a repository or open PRs.

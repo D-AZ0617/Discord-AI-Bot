@@ -190,6 +190,34 @@ body {
   margin: 0;
 }
 
+.scope-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.scope-row .btn-ghost.active {
+  border-color: var(--accent, #5865f2);
+  color: var(--accent, #5865f2);
+}
+
+.scope-row .btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.picker label.channel-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--muted);
+  user-select: none;
+}
+
+.picker label.channel-locked input {
+  pointer-events: none;
+}
+
 .tag {
   font-size: 11px;
   color: var(--muted);

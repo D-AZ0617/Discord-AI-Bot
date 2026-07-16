@@ -1,7 +1,15 @@
+export type ChannelScope = "all" | "selected";
+
 export interface ProjectConfig {
   name: string;
   displayName?: string;
   guildId: string;
+  /**
+   * Where this agent runs:
+   * - `all` — every channel in the server (`channelIds` must be empty)
+   * - `selected` — only the listed channels (`channelIds` must be non-empty)
+   */
+  channelScope: ChannelScope;
   channelIds: string[];
   allowedRoleIds: string[];
   provider: string;
@@ -25,6 +33,77 @@ export interface ProjectInputResult {
 
 const snowflakePattern = /^\d{17,20}$/;
 const projectNamePattern = /^[a-z0-9][a-z0-9_-]{0,31}$/;
+
+export function isAllChannelsAgent(project: Pick<ProjectConfig, "channelScope" | "channelIds">): boolean {
+  return project.channelScope === "all" || project.channelIds.length === 0;
+}
+
+/** Normalize legacy rows that only stored empty channelIds as guild-wide. */
+export function withChannelScope<
+  T extends Omit<ProjectConfig, "channelScope"> & { channelScope?: ChannelScope },
+>(project: T): T & ProjectConfig {
+  const channelScope: ChannelScope =
+    project.channelScope ??
+    (project.channelIds.length === 0 ? "all" : "selected");
+  return {
+    ...project,
+    channelScope,
+    channelIds: channelScope === "all" ? [] : project.channelIds,
+  };
+}
+
+/**
+ * Cross-agent channel rules for one guild: either a single All-channels agent,
+ * or selected-channel agents with disjoint channel sets — never both, never overlap.
+ */
+export function channelAssignmentErrors(
+  agents: ProjectConfig[],
+  candidate: ProjectConfig,
+  excludeName?: string,
+): string[] {
+  const others = agents.filter(
+    (agent) =>
+      agent.guildId === candidate.guildId &&
+      agent.name !== (excludeName ?? candidate.name),
+  );
+  const errors: string[] = [];
+  const candidateAll = isAllChannelsAgent(candidate);
+  const otherAll = others.find((agent) => isAllChannelsAgent(agent));
+
+  if (candidateAll && otherAll) {
+    errors.push(
+      `Only one All-channels agent is allowed. “${otherAll.displayName ?? otherAll.name}” already covers every channel.`,
+    );
+  }
+  if (candidateAll && others.some((agent) => !isAllChannelsAgent(agent))) {
+    const names = others
+      .filter((agent) => !isAllChannelsAgent(agent))
+      .map((agent) => agent.displayName ?? agent.name)
+      .join(", ");
+    errors.push(
+      `Cannot use All channels while other agents are assigned to specific channels (${names}). Remove those channel assignments first, or assign this agent to specific channels instead.`,
+    );
+  }
+  if (!candidateAll && otherAll) {
+    errors.push(
+      `“${otherAll.displayName ?? otherAll.name}” already covers All channels. Remove it or switch it to specific channels before assigning this agent.`,
+    );
+  }
+  if (!candidateAll) {
+    for (const channelId of candidate.channelIds) {
+      const owner = others.find(
+        (agent) =>
+          !isAllChannelsAgent(agent) && agent.channelIds.includes(channelId),
+      );
+      if (owner) {
+        errors.push(
+          `Channel ${channelId} is already assigned to “${owner.displayName ?? owner.name}”. Each channel can have only one agent.`,
+        );
+      }
+    }
+  }
+  return errors;
+}
 
 function validateProject(
   raw: unknown,
@@ -51,9 +130,26 @@ function validateProject(
       ? []
       : readStringArray(raw.channelIds, `${path}.channelIds`, errors);
   // Treat the server (guild) ID entered in the channels field as "whole server".
-  // Admins routinely paste the server ID here expecting it to mean everywhere,
-  // which would otherwise map the project to a channel that never exists.
-  const channelIds = rawChannelIds.filter((id) => id !== guildId);
+  const filteredChannelIds = rawChannelIds.filter((id) => id !== guildId);
+
+  let channelScope: ChannelScope;
+  if (raw.channelScope === "all" || raw.channelScope === "selected") {
+    channelScope = raw.channelScope;
+  } else if (raw.channelScope !== undefined) {
+    errors.push(`${path}.channelScope must be "all" or "selected"`);
+    channelScope = filteredChannelIds.length === 0 ? "all" : "selected";
+  } else {
+    // Legacy payloads: empty channels meant guild-wide.
+    channelScope = filteredChannelIds.length === 0 ? "all" : "selected";
+  }
+
+  const channelIds = channelScope === "all" ? [] : filteredChannelIds;
+  if (channelScope === "selected" && channelIds.length === 0) {
+    errors.push(
+      `${path}: select at least one channel, or choose All channels`,
+    );
+  }
+
   const allowedRoleIds = readStringArray(
     raw.allowedRoleIds,
     `${path}.allowedRoleIds`,
@@ -89,6 +185,7 @@ function validateProject(
       ? { displayName: raw.displayName.trim() }
       : {}),
     guildId,
+    channelScope,
     channelIds,
     allowedRoleIds,
     provider,
@@ -126,19 +223,16 @@ export function validateProjectsConfig(value: unknown): ProjectsConfig {
     (project): project is ProjectConfig => project !== null,
   );
   const names = new Set<string>();
-  const routes = new Set<string>();
   for (const project of validProjects) {
     if (names.has(project.name)) {
       errors.push(`Duplicate project name: ${project.name}`);
     }
     names.add(project.name);
-    for (const channelId of project.channelIds) {
-      const route = `${project.guildId}:${channelId}`;
-      if (routes.has(route)) {
-        errors.push(`Channel ${channelId} is assigned to more than one project`);
-      }
-      routes.add(route);
-    }
+    errors.push(
+      ...channelAssignmentErrors(validProjects, project).map(
+        (message) => `${project.name}: ${message}`,
+      ),
+    );
   }
 
   if (validProjects.length === 0) errors.push("At least one project is required");

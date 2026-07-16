@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Env } from "../env.js";
 import type { AgentRunStatus } from "../agents/types.js";
+import { withChannelScope } from "../config/schema.js";
 import type { AdminStore } from "./admin.js";
 import type {
   ContextAgent,
@@ -19,7 +20,14 @@ import type {
  * never exposed to browsers.
  */
 export function createServiceClient(env: Env): SupabaseClient {
-  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+  const url = env.SUPABASE_URL?.trim();
+  const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY is missing. For local dev, add it to .dev.vars (Supabase → Project Settings → API → service_role).",
+    );
+  }
+  return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
@@ -39,7 +47,7 @@ interface ProjectRow {
 }
 
 function toProject(row: ProjectRow): StoredProject {
-  return {
+  return withChannelScope({
     orgId: row.org_id,
     guildId: row.guild_id,
     name: row.name,
@@ -51,7 +59,7 @@ function toProject(row: ProjectRow): StoredProject {
     repoUrl: row.repo_url,
     ...(row.default_branch ? { defaultBranch: row.default_branch } : {}),
     autoCreatePR: row.auto_create_pr,
-  };
+  });
 }
 
 export class SupabaseStore implements DataStore, AdminStore {

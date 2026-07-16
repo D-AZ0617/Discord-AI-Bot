@@ -1,3 +1,4 @@
+import { credentialProviderId } from "./aliases.js";
 import type { AgentProviderRegistry } from "../agents/registry.js";
 import type { AgentProvider } from "../agents/types.js";
 import type { DataStore } from "../db/types.js";
@@ -25,7 +26,8 @@ export class CredentialResolver {
   ) {}
 
   async providerFor(orgId: string, providerId: string): Promise<AgentProvider> {
-    const credential = await this.store.getProviderCredential(orgId, providerId);
+    const storageId = credentialProviderId(providerId);
+    const credential = await this.store.getProviderCredential(orgId, storageId);
     if (!credential) throw new MissingCredentialError(providerId);
     const apiKey = await decryptSecret(this.keyRing, {
       ciphertext: credential.ciphertext,

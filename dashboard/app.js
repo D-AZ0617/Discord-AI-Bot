@@ -176,9 +176,10 @@ function renderLogin() {
         <h1 class="lp-title">Bring AI to your server with <span class="accent">one command</span></h1>
         <p class="lp-sub">
           Relay brings AI into Discord. Members type <code>/agent</code> to chat
-          with ChatGPT, Gemini, Claude, or free OpenRouter models — or hand a
-          coding task to a Cursor cloud agent that opens a pull request. Whatever
-          your team needs AI for, it happens right where you already talk.
+          with ChatGPT, Gemini, or Claude — ask OpenRouter about a public GitHub
+          repo (read-only), or hand a coding task to a Cursor cloud agent that
+          opens a pull request. Whatever your team needs AI for, it happens right
+          where you already talk.
         </p>
         <div class="lp-cta">
           <button class="btn-discord btn-lg" id="lp-signin">${discordGlyph} Integrate now — sign in with Discord</button>
@@ -249,17 +250,17 @@ function renderLogin() {
         <div class="feature">
           <div class="ic">💬</div>
           <h3>Chat with top AI models</h3>
-          <p>Ask questions and get answers from ChatGPT, Gemini, Claude, or free OpenRouter models — right in the channel, no repo or member setup required.</p>
+          <p>Ask questions and get answers from ChatGPT, Gemini, or Claude — right in the channel, no repo or member setup required.</p>
         </div>
         <div class="feature">
           <div class="ic">⚡</div>
           <h3>Code without leaving Discord</h3>
-          <p>Hand a coding task to a Cursor cloud agent. It runs in the cloud, works on your repo, and reports back with results.</p>
+          <p>Hand a coding task to a Cursor cloud agent, or ask OpenRouter read-only questions about a public GitHub repo. Cursor can open PRs; OpenRouter only explains the code.</p>
         </div>
         <div class="feature">
           <div class="ic">🔀</div>
           <h3>Automatic pull requests</h3>
-          <p>For coding projects, every task can open a GitHub PR on its own branch, so nothing lands without review.</p>
+          <p>For Cursor projects, every task can open a GitHub PR on its own branch, so nothing lands without review. OpenRouter coding projects stay read-only.</p>
         </div>
         <div class="feature">
           <div class="ic">🔒</div>
@@ -269,7 +270,7 @@ function renderLogin() {
         <div class="feature">
           <div class="ic">🧩</div>
           <h3>One bot, many providers</h3>
-          <p>Run several projects side by side — a chat model in one channel, a coding agent in another, and switch with a simple option.</p>
+          <p>Run several agents side by side — a chat model in one channel, a coding agent in another. Each channel has exactly one agent.</p>
         </div>
         <div class="feature">
           <div class="ic">👀</div>
@@ -295,7 +296,7 @@ function renderLogin() {
         <div class="how-step">
           <div class="num">2</div>
           <h3>Connect an AI</h3>
-          <p>Add a key for the AI you want — a chat model like ChatGPT, Gemini, Claude, or OpenRouter, or Cursor for coding agents — then pick the roles and channels allowed to use it.</p>
+          <p>Add a key for the AI you want — ChatGPT, Gemini, or Claude for chat; OpenRouter for read-only codebase Q&amp;A; or Cursor for coding agents that can open PRs — then pick the roles and channels allowed to use it.</p>
         </div>
         <div class="how-step">
           <div class="num">3</div>
@@ -313,12 +314,11 @@ function renderLogin() {
         <p>Everything your members need, right in the message box.</p>
       </div>
       <div class="cmd-grid">
-        <div class="cmd-row"><code>/agent</code><span>Start or continue this channel's agent</span></div>
-        <div class="cmd-row"><code>/agent-new</code><span>Always start a fresh agent</span></div>
-        <div class="cmd-row"><code>/agent-cursor</code><span>Run one prompt with a specific AI (also -openrouter, -chatgpt, -claude, -gemini)</span></div>
+        <div class="cmd-row"><code>/agent</code><span>Ask this channel's agent</span></div>
+        <div class="cmd-row"><code>/agent-new</code><span>Fresh run with this channel's agent</span></div>
         <div class="cmd-row"><code>/agent-cancel</code><span>Stop the running agent and unlock the channel</span></div>
         <div class="cmd-row"><code>/agent-status</code><span>See recent runs here</span></div>
-        <div class="cmd-row"><code>/agent-projects</code><span>List the projects you can access</span></div>
+        <div class="cmd-row"><code>/agent-list</code><span>List agents you can access</span></div>
         <div class="cmd-row"><code>/cursor…</code><span>Aliases for all of the above</span></div>
       </div>
     </section>
@@ -333,7 +333,7 @@ function renderLogin() {
       <div class="faq">
         <details class="faq-item">
           <summary>What can I use it for?</summary>
-          <div class="faq-body">Two things, and you can do either or both. <strong>Chat:</strong> ask questions and get answers from ChatGPT, Gemini, Claude, or OpenRouter — great for Q&amp;A, brainstorming, and support. <strong>Code:</strong> hand a task to a Cursor cloud agent that works on your GitHub repo and can open a pull request.</div>
+          <div class="faq-body">Two things, and you can do either or both. <strong>Chat:</strong> ask questions and get answers from ChatGPT, Gemini, or Claude — great for Q&amp;A, brainstorming, and support. <strong>Code:</strong> Cursor cloud agents that work on your GitHub repo and can open a pull request, or OpenRouter for read-only questions about a public repo.</div>
         </details>
         <details class="faq-item">
           <summary>Is it free?</summary>
@@ -345,7 +345,7 @@ function renderLogin() {
         </details>
         <details class="faq-item">
           <summary>Which AI providers are supported?</summary>
-          <div class="faq-body">For chat: OpenAI (ChatGPT), Google Gemini, Anthropic (Claude), and OpenRouter (including free models). For coding tasks that work on a repo and open PRs: Cursor cloud agents. Add whichever you like — no need to use all of them.</div>
+          <div class="faq-body">For chat: OpenAI (ChatGPT), Google Gemini, and Anthropic (Claude). For read-only questions about a public GitHub repo: OpenRouter. For coding tasks that edit a repo and open PRs: Cursor cloud agents. Add whichever you like — no need to use all of them.</div>
         </details>
         <details class="faq-item">
           <summary>Are my API keys safe?</summary>
@@ -357,11 +357,11 @@ function renderLogin() {
         </details>
         <details class="faq-item">
           <summary>Can I set up more than one AI or project?</summary>
-          <div class="faq-body">Absolutely. Add as many projects as you like — run a chat model in one channel and a coding agent in another, connect multiple repos, or let members switch with a <code>project</code> option on the command.</div>
+          <div class="faq-body">Absolutely. Give each AI its own channel (or one All-channels agent). Each channel has exactly one agent — <code>/agent</code> always uses that channel's agent.</div>
         </details>
         <details class="faq-item">
           <summary>Does it access my code?</summary>
-          <div class="faq-body">Only coding projects touch code. A Cursor cloud agent clones your GitHub repo, works on a new branch, and can open a pull request so nothing lands without review. Chat projects never access any repo. See the <a href="/guide.html">setup guide</a> for details.</div>
+          <div class="faq-body">Cursor coding projects clone your GitHub repo, work on a new branch, and can open a pull request. OpenRouter coding projects only read a <strong>public</strong> repo to answer questions — they never edit code or open PRs. Chat projects never access any repo. See the <a href="/guide.html">setup guide</a> for details.</div>
         </details>
         <details class="faq-item">
           <summary>What if an agent gets stuck?</summary>
@@ -631,6 +631,35 @@ function displayNameFor(id) {
   return providerById(id)?.displayName || id;
 }
 
+function credentialStorageId(providerId) {
+  return providerId === "openrouter-code" ? "openrouter" : providerId;
+}
+
+function hasConfiguredCredential(providerId, configured) {
+  return configured.includes(credentialStorageId(providerId));
+}
+
+function storedProviderForProject(project) {
+  if (project.provider === "openrouter" && project.repoUrl?.trim()) {
+    return "openrouter-code";
+  }
+  return project.provider;
+}
+
+function openRouterIdForCategory(cat) {
+  return cat === "coding" ? "openrouter-code" : "openrouter";
+}
+
+function alignOpenRouterSelection(category, selectedId) {
+  if (category === "coding" && selectedId === "openrouter") {
+    return "openrouter-code";
+  }
+  if (category === "chat" && selectedId === "openrouter-code") {
+    return "openrouter";
+  }
+  return selectedId;
+}
+
 async function renderOrg() {
   app.innerHTML = "";
 
@@ -679,23 +708,25 @@ async function renderOrg() {
   };
   const allDone = progress.connected && progress.projects;
 
-  // The overview (lists + Add buttons) is the landing screen for a server. The
-  // Connect AI / Create project / Ready wizard is entered via the Add buttons.
+  // First-time setup jumps straight into the wizard (no overview detour).
   if (orgView.orgId !== state.orgId) {
     orgView = {
       orgId: state.orgId,
-      view: "overview",
+      view: allDone ? "overview" : "wizard",
       step: 1,
       editProjectName: null,
-      openForm: false,
+      openForm: true,
     };
+  } else if (orgView.view === "overview" && !allDone) {
+    orgView.view = "wizard";
+    orgView.step = progress.connected || progress.projects ? 2 : 1;
+    orgView.openForm = true;
   }
 
   const enterWizard = (step, editName = null) => {
     orgView.view = "wizard";
     orgView.step = step;
     orgView.editProjectName = editName;
-    // Coming from an Add/Edit action, open the input form directly.
     orgView.openForm = true;
     renderOrg();
   };
@@ -716,17 +747,18 @@ async function renderOrg() {
   app.append(backOverview);
 
   const steps = [
-    { n: 1, label: "Connect AI", done: progress.connected },
-    { n: 2, label: "Create a project", done: progress.projects },
-    { n: 3, label: "Ready to use", done: allDone },
+    { n: 1, label: "Choose AI", done: Boolean(pendingProjectProvider) || progress.connected },
+    { n: 2, label: "Set up agent", done: progress.projects },
+    { n: 3, label: "Ready", done: allDone },
   ];
   const stepLocked = (n) =>
-    (n === 2 && !progress.connected) || (n === 3 && !allDone);
+    (n === 2 && !pendingProjectProvider && !progress.connected) ||
+    (n === 3 && !allDone);
 
   const goTo = (step) => {
     orgView.step = step;
     orgView.editProjectName = null;
-    orgView.openForm = false;
+    orgView.openForm = step !== 3;
     renderOrg();
   };
 
@@ -753,9 +785,7 @@ async function renderOrg() {
   app.append(body);
 
   if (orgView.step === 1) {
-    body.append(
-      renderCredentialsCard(credentials, () => goTo(2), orgView.openForm),
-    );
+    body.append(renderChooseAiCard(credentials, () => goTo(2)));
   } else if (orgView.step === 2) {
     body.append(
       await renderProjectsCard(
@@ -763,6 +793,7 @@ async function renderOrg() {
         () => goTo(3),
         orgView.editProjectName,
         orgView.openForm,
+        credentials,
       ),
     );
   } else {
@@ -833,26 +864,32 @@ function renderOrgOverview({ credentials, projects, allDone, enterWizard }) {
     <section class="card">
       <div class="card-head">
         <div>
-          <h2>Projects</h2>
-          <p class="hint">Each project connects an AI to the channels and roles allowed to use it.</p>
+          <h2>Agents</h2>
+          <p class="hint">Each channel has one agent. <code>/agent</code> always uses that channel's agent.</p>
         </div>
-        <button class="btn-primary" id="ov-add-proj">+ Add a project</button>
+        <button class="btn-primary" id="ov-add-proj">+ Add an agent</button>
       </div>
       <div class="list" id="ov-proj-list"></div>
     </section>
   `);
   const projList = projCard.querySelector("#ov-proj-list");
   if (projects.length === 0) {
-    projList.innerHTML = `<p class="muted">No projects yet. Add one so members can use <code>/agent</code>.</p>`;
+    projList.innerHTML = `<p class="muted">No agents yet. Add one so members can use <code>/agent</code>.</p>`;
   } else {
     for (const project of projects) {
-      const scope = project.channelIds.length
-        ? `${project.channelIds.length} channel(s)`
-        : "whole server";
-      const target =
-        project.repoUrl ||
-        (project.providerOptions && project.providerOptions.model) ||
-        "";
+      const scope =
+        project.channelScope === "all" ||
+        (!project.channelScope && !(project.channelIds && project.channelIds.length))
+          ? "all channels"
+          : `${project.channelIds.length} channel(s)`;
+      const parts = [
+        project.repoUrl,
+        project.providerOptions && project.providerOptions.model,
+      ].filter(Boolean);
+      const missingRepo =
+        providerById(project.provider)?.kind === "code-chat" && !project.repoUrl;
+      if (missingRepo) parts.push("⚠ missing repo URL");
+      const target = parts.join(" · ");
       const item = el(`
         <div class="item">
           <div>
@@ -867,7 +904,7 @@ function renderOrgOverview({ credentials, projects, allDone, enterWizard }) {
       edit.onclick = () => enterWizard(2, project.name);
       const del = el(`<button class="btn-danger">Remove</button>`);
       del.onclick = async () => {
-        if (!confirm(`Remove project “${project.displayName || project.name}”?`)) return;
+        if (!confirm(`Remove agent “${project.displayName || project.name}”?`)) return;
         del.disabled = true;
         try {
           await api(
@@ -886,12 +923,8 @@ function renderOrgOverview({ credentials, projects, allDone, enterWizard }) {
     }
   }
   projCard.querySelector("#ov-add-proj").onclick = () => {
-    if (credentials.length === 0) {
-      toast("Connect an AI first, then add a project.", true);
-      enterWizard(1);
-      return;
-    }
-    enterWizard(2, null);
+    pendingProjectProvider = null;
+    enterWizard(1);
   };
   app.append(projCard);
 
@@ -932,7 +965,7 @@ function renderHelpCard() {
       <div class="faq help-faq">
         <details class="faq-item">
           <summary>What's the difference between a chat project and a coding project?</summary>
-          <div class="faq-body">A <strong>chat</strong> project (ChatGPT, Gemini, Claude, or OpenRouter) answers questions right in the channel — no repo needed. A <strong>coding</strong> project (Cursor) runs a cloud agent on a GitHub repo and can open a pull request. Add whichever you need, or both.</div>
+          <div class="faq-body">A <strong>chat</strong> project (ChatGPT, Gemini, or Claude) answers questions right in the channel — no repo needed. A <strong>Cursor</strong> coding project runs a cloud agent on a GitHub repo and can open a pull request. An <strong>OpenRouter</strong> coding project answers read-only questions about a public GitHub repo. Add whichever you need.</div>
         </details>
         <details class="faq-item">
           <summary>Can members pick a different AI without changing the channel default?</summary>
@@ -963,6 +996,146 @@ function renderHelpCard() {
   `);
 }
 
+function renderChooseAiCard(configuredProviders, onContinue) {
+  const providers = providerList();
+  const comingSoon = {
+    coding: [
+      { id: "codex", displayName: "Codex" },
+      { id: "claude-code", displayName: "Claude Code" },
+    ],
+    chat: [],
+  };
+  const categories = {
+    chat: {
+      label: "💬 Chat",
+      desc: "Answers questions in your channels — no repo required.",
+    },
+    coding: {
+      label: "⚡ Coding",
+      desc: "Cursor can open PRs. OpenRouter answers read-only questions about a public repo.",
+    },
+  };
+  const categoryOf = (p) =>
+    p.kind === "repo" || p.kind === "code-chat" ? "coding" : "chat";
+  const providersIn = (cat) => providers.filter((p) => categoryOf(p) === cat);
+
+  const card = el(`
+    <section class="card">
+      <div class="step-head">
+        <span class="step-index">Step 1</span>
+        <h2>Choose an AI</h2>
+      </div>
+      <p class="hint">Pick which AI this agent will use. You’ll add the API key and channels next.</p>
+      <div class="segmented" id="cat-toggle">
+        <button type="button" class="seg" data-cat="chat">${categories.chat.label}</button>
+        <button type="button" class="seg" data-cat="coding">${categories.coding.label}</button>
+      </div>
+      <p class="hint" id="cat-desc"></p>
+      <div class="provider-tiles" id="provider-tiles"></div>
+      <div class="wizard-actions">
+        <button class="btn-primary" id="choose-next">Continue →</button>
+      </div>
+    </section>
+  `);
+
+  const catDesc = card.querySelector("#cat-desc");
+  const tilesEl = card.querySelector("#provider-tiles");
+  let activeCat = providersIn("chat").length ? "chat" : "coding";
+  let selectedProviderId =
+    pendingProjectProvider ||
+    providersIn(activeCat).find((p) => configuredProviders.includes(p.id))?.id ||
+    providersIn(activeCat)[0]?.id ||
+    null;
+  if (selectedProviderId) {
+    const sel = providerById(selectedProviderId);
+    if (sel) activeCat = categoryOf(sel);
+  }
+
+  const renderTiles = () => {
+    catDesc.textContent = categories[activeCat].desc;
+    card.querySelectorAll("#cat-toggle .seg").forEach((b) => {
+      b.classList.toggle("active", b.dataset.cat === activeCat);
+    });
+    tilesEl.innerHTML = "";
+    const live = providersIn(activeCat);
+    for (const p of live) {
+      const connected = hasConfiguredCredential(p.id, configuredProviders);
+      const tile = el(`
+        <button type="button" class="provider-tile ${
+          selectedProviderId === p.id ? "selected" : ""
+        }" data-provider="${escapeHtml(p.id)}">
+          <span class="pt-name">${escapeHtml(p.displayName)}</span>
+          ${connected ? `<span class="pt-soon">Key saved</span>` : ""}
+        </button>
+      `);
+      tile.onclick = () => {
+        selectedProviderId = p.id;
+        renderTiles();
+      };
+      tilesEl.append(tile);
+    }
+    for (const soon of comingSoon[activeCat]) {
+      tilesEl.append(
+        el(`
+        <button type="button" class="provider-tile is-soon" disabled>
+          <span class="pt-name">${escapeHtml(soon.displayName)}</span>
+          <span class="pt-soon">Coming soon</span>
+        </button>
+      `),
+      );
+    }
+  };
+
+  card.querySelectorAll("#cat-toggle .seg").forEach((b) => {
+    b.onclick = () => {
+      activeCat = b.dataset.cat;
+      const inCat = providersIn(activeCat);
+      selectedProviderId = alignOpenRouterSelection(activeCat, selectedProviderId);
+      if (!inCat.some((p) => p.id === selectedProviderId)) {
+        selectedProviderId =
+          inCat.find((p) => p.id === openRouterIdForCategory(activeCat))?.id ||
+          inCat[0]?.id ||
+          null;
+      }
+      renderTiles();
+    };
+  });
+
+  card.querySelector("#choose-next").onclick = () => {
+    if (!selectedProviderId) return toast("Choose an AI first", true);
+    pendingProjectProvider = selectedProviderId;
+    onContinue();
+  };
+
+  renderTiles();
+  return card;
+}
+
+function agentLabel(project) {
+  return project.displayName || project.name;
+}
+
+/** Map channelId → owning agent label (excluding one agent when editing). */
+function channelOwnerMap(projects, excludeName = null) {
+  const owners = new Map();
+  let allOwner = null;
+  for (const project of projects) {
+    if (excludeName && project.name === excludeName) continue;
+    const label = agentLabel(project);
+    const isAll =
+      project.channelScope === "all" ||
+      (!project.channelScope && !(project.channelIds && project.channelIds.length));
+    if (isAll) {
+      allOwner = label;
+      continue;
+    }
+    for (const id of project.channelIds || []) {
+      if (!owners.has(id)) owners.set(id, label);
+    }
+  }
+  return { owners, allOwner };
+}
+
 function renderCredentialsCard(initialConfigured, onFirstAdded, openForm = false) {
   const providers = providerList();
 
@@ -982,10 +1155,11 @@ function renderCredentialsCard(initialConfigured, onFirstAdded, openForm = false
     },
     coding: {
       label: "⚡ Coding Agent",
-      desc: "Works on a GitHub repo and can open pull requests.",
+      desc: "Cursor works on a repo and can open PRs. OpenRouter answers read-only questions about a public GitHub repo.",
     },
   };
-  const categoryOf = (p) => (p.kind === "repo" ? "coding" : "chat");
+  const categoryOf = (p) =>
+    p.kind === "repo" || p.kind === "code-chat" ? "coding" : "chat";
   const providersIn = (cat) => providers.filter((p) => categoryOf(p) === cat);
 
   const card = el(`
@@ -1022,7 +1196,7 @@ function renderCredentialsCard(initialConfigured, onFirstAdded, openForm = false
         </div>
       </div>
       <div class="wizard-actions" id="cred-next-row" hidden>
-        <button class="btn-primary" id="cred-next">Continue to projects →</button>
+        <button class="btn-primary" id="cred-next">Continue to agents →</button>
       </div>
     </section>
   `);
@@ -1191,7 +1365,11 @@ function renderCredentialsCard(initialConfigured, onFirstAdded, openForm = false
     try {
       await api("/api/credentials", {
         method: "POST",
-        body: JSON.stringify({ orgId: state.orgId, providerId, apiKey }),
+        body: JSON.stringify({
+          orgId: state.orgId,
+          providerId: credentialStorageId(providerId),
+          apiKey,
+        }),
       });
       keyEl.value = "";
       // Remember the choice so the project form opens on the matching fields.
@@ -1227,7 +1405,13 @@ function renderCredentialsCard(initialConfigured, onFirstAdded, openForm = false
   return card;
 }
 
-async function renderProjectsCard(initialProjects, onFirstAdded, editName, openForm = false) {
+async function renderProjectsCard(
+  initialProjects,
+  onFirstAdded,
+  editName,
+  openForm = false,
+  configuredProviders = [],
+) {
   // Load the server's real roles/channels so admins pick from dropdowns instead
   // of pasting IDs. Falls back to manual ID entry if the lookup fails.
   let meta = null;
@@ -1240,20 +1424,22 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
     meta = null;
   }
 
+  let channelLocks = channelOwnerMap(initialProjects || [], editName);
+
   const channelControl = meta
-    ? `<div class="picker" id="p-channels">${
-        meta.channels.length
-          ? meta.channels
-              .map(
-                (c) =>
-                  `<label><input type="checkbox" value="${c.id}" /> #${escapeHtml(c.name)}</label>`,
-              )
-              .join("")
-          : `<p class="muted" style="margin:0">No text channels found.</p>`
-      }</div>
-       <p class="hint">Leave all unchecked to allow the <strong>whole server</strong>.</p>`
-    : `<input id="p-channels" placeholder="Leave blank for the whole server" />
-       <p class="hint">Comma-separated <em>channel</em> IDs. Leave blank for the whole server — do not paste your server ID.</p>`;
+    ? `<div class="scope-row">
+        <button type="button" class="btn-ghost" id="p-all-channels">All channels</button>
+        <span class="hint" id="p-scope-hint" style="margin:0">or pick specific channels below (required)</span>
+      </div>
+      <div class="picker" id="p-channels"></div>
+       <p class="hint">Each channel can have only one agent. Hover a locked channel to see who owns it.</p>`
+    : `<div class="scope-row">
+        <button type="button" class="btn-ghost" id="p-all-channels">All channels</button>
+        <span class="hint" id="p-scope-hint" style="margin:0">or enter channel IDs below</span>
+      </div>
+      <input id="p-channels" placeholder="Comma-separated channel IDs" />
+       <p class="hint">Required unless All channels is selected. Do not paste your server ID.</p>`;
+
 
   const roleControl = meta
     ? `<div class="picker" id="p-roles">${
@@ -1268,39 +1454,51 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
               .join("")
           : `<p class="muted" style="margin:0">No roles found. Create a role in Discord first.</p>`
       }</div>
-       <p class="hint">Check at least one role allowed to use the bot.</p>`
+       <p class="hint">Check at least one role allowed to use the agent.</p>`
     : `<input id="p-roles" placeholder="123456789012345678" />
        <p class="hint">Comma-separated <em>role</em> IDs (at least one). @everyone does not work.</p>`;
 
   const providers = providerList();
   const providerOptions = providers
-    .map((p) => `<option value="${p.id}">${escapeHtml(p.displayName)}</option>`)
+    .map((p) => {
+      let label = p.displayName;
+      if (p.id === "openrouter") label = "OpenRouter (chat)";
+      if (p.id === "openrouter-code") label = "OpenRouter (codebase Q&A)";
+      return `<option value="${p.id}">${escapeHtml(label)}</option>`;
+    })
     .join("");
 
   const card = el(`
     <section class="card">
       <div class="step-head">
         <span class="step-index">Step 2</span>
-        <h2>Create a project</h2>
+        <h2>Set up agent</h2>
       </div>
-      <p class="hint">A project connects an AI (repo agent or chat model) to the channels and roles allowed to use it. Add as many as you like.</p>
+      <p class="hint">Name, API key, and channels in one step. <code>/agent</code> uses this agent in the channels you pick.</p>
       ${
         metaWarnings.length
           ? `<div class="callout warn">${metaWarnings.map(escapeHtml).join("<br>")}</div>`
           : ""
       }
+      <div id="channel-map" class="list" style="margin-bottom:12px"></div>
       <div id="project-list" class="list"></div>
       <div class="add-row">
-        <button class="btn-primary" id="p-add" hidden>+ Add a project</button>
+        <button class="btn-primary" id="p-add" hidden>+ Add an agent</button>
       </div>
       <div id="p-form">
       <div class="divider"></div>
-      <h3 id="p-form-title" class="form-subtitle">Add a project</h3>
-      <label>Project name <span class="req">*</span></label>
+      <h3 id="p-form-title" class="form-subtitle">Add an agent</h3>
+      <label>Agent name <span class="req">*</span></label>
       <input id="p-display" placeholder="Website Assistant" />
       <p class="hint">This is the name people will see in Discord.</p>
       <label>Provider</label>
       <select id="p-provider">${providerOptions}</select>
+
+      <div id="p-api-fields">
+        <label>API key <span class="req" id="p-key-req">*</span></label>
+        <input id="p-api-key" type="password" placeholder="Paste your API key" autocomplete="off" />
+        <p class="hint" id="p-api-hint"></p>
+      </div>
 
       <div id="p-repo-fields">
         <label>GitHub repo URL <span class="req">*</span></label>
@@ -1308,7 +1506,7 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
         <div class="row">
           <div><label>Default branch (optional)</label><input id="p-branch" placeholder="main" /></div>
         </div>
-        <label><input type="checkbox" id="p-pr" checked style="width:auto;margin-right:8px" />Auto-create pull requests</label>
+        <label id="p-pr-row"><input type="checkbox" id="p-pr" checked style="width:auto;margin-right:8px" />Auto-create pull requests</label>
       </div>
 
       <div id="p-chat-fields" hidden>
@@ -1319,12 +1517,12 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
         <p class="hint" id="p-model-hint">Choose a suggestion above or type any model ID the provider supports.</p>
       </div>
 
-      <label>Channels</label>
+      <label>Channels <span class="req">*</span></label>
       ${channelControl}
       <label>Allowed roles <span class="req">*</span></label>
       ${roleControl}
       <div class="actions">
-        <button class="btn-primary" id="p-save">Add project</button>
+        <button class="btn-primary" id="p-save">Add agent</button>
         <button class="btn-ghost" id="p-cancel" hidden>Cancel</button>
       </div>
       </div>
@@ -1335,6 +1533,7 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
   `);
 
   const listEl = card.querySelector("#project-list");
+  const mapEl = card.querySelector("#channel-map");
   const saveBtn = card.querySelector("#p-save");
   const cancelBtn = card.querySelector("#p-cancel");
   const titleEl = card.querySelector("#p-form-title");
@@ -1342,25 +1541,130 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
   const displayNameEl = card.querySelector("#p-display");
   const repoFields = card.querySelector("#p-repo-fields");
   const chatFields = card.querySelector("#p-chat-fields");
+  const prRow = card.querySelector("#p-pr-row");
   const modelEl = card.querySelector("#p-model");
   const modelPickerEl = card.querySelector("#p-model-picker");
   const nextRow = card.querySelector("#p-next-row");
   const addBtn = card.querySelector("#p-add");
   const formEl = card.querySelector("#p-form");
+  const allChannelsBtn = card.querySelector("#p-all-channels");
+  const scopeHint = card.querySelector("#p-scope-hint");
+  const apiKeyEl = card.querySelector("#p-api-key");
+  const apiHintEl = card.querySelector("#p-api-hint");
+  const keyReqEl = card.querySelector("#p-key-req");
   let projectsCache = initialProjects || [];
+  let configuredCache = [...configuredProviders];
   let editingName = null;
   let projectNameCustomized = false;
-  // Collapse the form behind an "Add a project" button once projects exist,
-  // unless opened via an Add/Edit action.
+  let channelScope = "selected";
   let formOpen = projectsCache.length === 0 || openForm;
+
+  const rebuildChannelPicker = () => {
+    const picker = card.querySelector("#p-channels");
+    if (!picker?.classList?.contains("picker") || !meta) return;
+    const checked = new Set(
+      Array.from(picker.querySelectorAll("input:checked:not(:disabled)")).map(
+        (i) => i.value,
+      ),
+    );
+    channelLocks = channelOwnerMap(projectsCache, editingName);
+    if (!meta.channels.length) {
+      picker.innerHTML = `<p class="muted" style="margin:0">No text channels found.</p>`;
+      return;
+    }
+    picker.innerHTML = meta.channels
+      .map((c) => {
+        const owner = channelLocks.allOwner || channelLocks.owners.get(c.id);
+        if (owner) {
+          const tip = `Agent ${owner} is already assigned to this channel`;
+          return `<label class="channel-locked" title="${escapeHtml(tip)}"><input type="checkbox" value="${c.id}" disabled /> #${escapeHtml(c.name)}</label>`;
+        }
+        const isChecked = checked.has(c.id) ? "checked" : "";
+        return `<label><input type="checkbox" value="${c.id}" ${isChecked} /> #${escapeHtml(c.name)}</label>`;
+      })
+      .join("");
+  };
 
   const applyFormState = () => {
     formEl.hidden = !formOpen;
     addBtn.hidden = formOpen || projectsCache.length === 0;
     nextRow.hidden = projectsCache.length === 0;
-    // Cancel is only meaningful when there's a list to collapse back to.
     cancelBtn.hidden = !(formOpen && projectsCache.length > 0);
   };
+
+  const applyChannelScopeUi = () => {
+    const all = channelScope === "all";
+    const blockedByOtherAll = Boolean(channelLocks.allOwner);
+    allChannelsBtn.disabled = blockedByOtherAll;
+    allChannelsBtn.title = blockedByOtherAll
+      ? `Agent ${channelLocks.allOwner} is already assigned to this channel`
+      : "";
+    allChannelsBtn.classList.toggle("active", all && !blockedByOtherAll);
+    allChannelsBtn.textContent =
+      all && !blockedByOtherAll ? "All channels ✓" : "All channels";
+    if (scopeHint) {
+      scopeHint.textContent = blockedByOtherAll
+        ? `All channels is taken by ${channelLocks.allOwner}`
+        : all
+          ? "This agent answers in every channel"
+          : "or pick specific channels below (required)";
+    }
+    if (blockedByOtherAll && all) channelScope = "selected";
+    const control = card.querySelector("#p-channels");
+    if (control?.classList?.contains("picker")) {
+      control.querySelectorAll("input").forEach((input) => {
+        const locked = input.closest("label.channel-locked");
+        if (locked) {
+          input.disabled = true;
+          input.checked = false;
+          return;
+        }
+        input.disabled = all;
+        if (all) input.checked = false;
+      });
+      control.style.opacity = all ? "0.45" : "1";
+    } else if (control) {
+      control.disabled = all || blockedByOtherAll;
+      if (all) control.value = "";
+    }
+  };
+
+  const updateApiKeyUi = () => {
+    const providerId = providerSel.value;
+    const hasKey = hasConfiguredCredential(providerId, configuredCache);
+    const p = providerById(providerId);
+    keyReqEl.hidden = hasKey;
+    apiKeyEl.placeholder = hasKey
+      ? "Leave blank to keep the saved key"
+      : "Paste your API key";
+    apiHintEl.innerHTML = hasKey
+      ? `A key for <strong>${escapeHtml(displayNameFor(providerId))}</strong> is already saved. Paste a new one only to replace it.`
+      : p?.apiKeyHint
+        ? `Get your key from <strong>${escapeHtml(p.apiKeyHint)}</strong>.`
+        : "Keys are encrypted and never shown again.";
+  };
+
+  allChannelsBtn.onclick = () => {
+    if (channelLocks.allOwner) {
+      toast(
+        `Agent ${channelLocks.allOwner} is already assigned to this channel`,
+        true,
+      );
+      return;
+    }
+    channelScope = channelScope === "all" ? "selected" : "all";
+    applyChannelScopeUi();
+  };
+
+  const channelsPicker = card.querySelector("#p-channels");
+  if (channelsPicker?.classList?.contains("picker")) {
+    channelsPicker.addEventListener("change", () => {
+      if (channelScope === "all") {
+        channelScope = "selected";
+        applyChannelScopeUi();
+      }
+    });
+  }
 
   const currentKind = () => providerById(providerSel.value)?.kind || "repo";
   const useProviderAsProjectName = () => {
@@ -1372,10 +1676,14 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
 
   const applyProviderKind = (keepModel = false) => {
     const p = providerById(providerSel.value);
-    const isChat = p?.kind === "chat";
-    repoFields.hidden = isChat;
-    chatFields.hidden = !isChat;
-    if (isChat) {
+    const kind = p?.kind || "repo";
+    const needsRepo = kind === "repo" || kind === "code-chat";
+    const needsModel = kind === "chat" || kind === "code-chat";
+    repoFields.hidden = !needsRepo;
+    chatFields.hidden = !needsModel;
+    prRow.hidden = kind !== "repo";
+    updateApiKeyUi();
+    if (needsModel) {
       const models = p?.suggestedModels || [];
       if (!keepModel) {
         modelEl.value = models[0] || "";
@@ -1434,10 +1742,15 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
     card.querySelector("#p-pr").checked = true;
     modelEl.value = "";
     applyProviderKind(false);
+    channelScope = "selected";
+    channelLocks = channelOwnerMap(projectsCache, null);
+    rebuildChannelPicker();
     setIds("p-channels", []);
     setIds("p-roles", []);
-    titleEl.textContent = "Add a project";
-    saveBtn.textContent = "Add project";
+    applyChannelScopeUi();
+    updateApiKeyUi();
+    titleEl.textContent = "Add an agent";
+    saveBtn.textContent = "Add agent";
     cancelBtn.hidden = true;
   };
 
@@ -1447,14 +1760,21 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
     displayNameEl.value = project.displayName || project.name;
     card.querySelector("#p-repo").value = project.repoUrl || "";
     card.querySelector("#p-branch").value = project.defaultBranch || "";
-    providerSel.value = project.provider || "cursor";
+    providerSel.value = storedProviderForProject(project);
     card.querySelector("#p-pr").checked = project.autoCreatePR;
     modelEl.value = (project.providerOptions && project.providerOptions.model) || "";
     applyProviderKind(true);
-    setIds("p-channels", project.channelIds);
+    channelScope =
+      project.channelScope ||
+      (project.channelIds && project.channelIds.length ? "selected" : "all");
+    channelLocks = channelOwnerMap(projectsCache, editingName);
+    rebuildChannelPicker();
+    setIds("p-channels", channelScope === "all" ? [] : project.channelIds || []);
     setIds("p-roles", project.allowedRoleIds);
+    applyChannelScopeUi();
+    updateApiKeyUi();
     titleEl.textContent = `Edit “${project.displayName || project.name}”`;
-    saveBtn.textContent = "Update project";
+    saveBtn.textContent = "Update agent";
     cancelBtn.hidden = false;
     formOpen = true;
     applyFormState();
@@ -1475,24 +1795,61 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
     applyFormState();
   };
 
+  const renderChannelMap = (projects) => {
+    if (!mapEl) return;
+    if (!projects.length) {
+      mapEl.innerHTML = "";
+      return;
+    }
+    const rows = [];
+    for (const project of projects) {
+      const scope =
+        project.channelScope === "all" ||
+        (!project.channelScope && !(project.channelIds && project.channelIds.length))
+          ? "All channels"
+          : (project.channelIds || [])
+              .map((id) => {
+                const ch = meta?.channels?.find((c) => c.id === id);
+                return ch ? `#${ch.name}` : id;
+              })
+              .join(", ");
+      rows.push(
+        `<div class="meta"><strong>${escapeHtml(scope)}</strong> → ${escapeHtml(
+          project.displayName || project.name,
+        )} <span class="pill">${escapeHtml(displayNameFor(project.provider))}</span></div>`,
+      );
+    }
+    mapEl.innerHTML = `<p class="hint" style="margin-top:0">Channel → agent</p>${rows.join("")}`;
+  };
+
   const renderList = (projects) => {
     projectsCache = projects;
+    channelLocks = channelOwnerMap(projectsCache, editingName);
     if (projects.length === 0) formOpen = true;
     applyFormState();
     if (!editingName && !projectNameCustomized) useProviderAsProjectName();
+    rebuildChannelPicker();
+    applyChannelScopeUi();
+    renderChannelMap(projects);
     listEl.innerHTML = "";
     if (projects.length === 0) {
-      listEl.innerHTML = `<p class="muted">No projects yet.</p>`;
+      listEl.innerHTML = `<p class="muted">No agents yet.</p>`;
       return;
     }
     for (const project of projects) {
-      const scope = project.channelIds.length
-        ? `${project.channelIds.length} channel(s)`
-        : "whole server";
-      const target =
-        project.repoUrl ||
-        (project.providerOptions && project.providerOptions.model) ||
-        "";
+      const scope =
+        project.channelScope === "all" ||
+        (!project.channelScope && !(project.channelIds && project.channelIds.length))
+          ? "all channels"
+          : `${project.channelIds.length} channel(s)`;
+      const parts = [
+        project.repoUrl,
+        project.providerOptions && project.providerOptions.model,
+      ].filter(Boolean);
+      const missingRepo =
+        providerById(project.provider)?.kind === "code-chat" && !project.repoUrl;
+      if (missingRepo) parts.push("⚠ missing repo URL");
+      const target = parts.join(" · ");
       const item = el(`
         <div class="item">
           <div>
@@ -1507,7 +1864,7 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
       edit.onclick = () => loadForEdit(project);
       const del = el(`<button class="btn-danger">Remove</button>`);
       del.onclick = async () => {
-        if (!confirm(`Remove project “${project.displayName || project.name}”?`)) return;
+        if (!confirm(`Remove agent “${project.displayName || project.name}”?`)) return;
         try {
           await api(
             `/api/projects?orgId=${state.orgId}&name=${encodeURIComponent(project.name)}`,
@@ -1546,30 +1903,50 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
   saveBtn.onclick = async () => {
     const enteredDisplayName = displayNameEl.value.trim();
     if (!enteredDisplayName) {
-      toast("Enter a project name.", true);
+      toast("Enter an agent name.", true);
       focusField("p-display");
       return;
     }
-    const isChat = currentKind() === "chat";
-    const repoUrl = isChat ? "" : card.querySelector("#p-repo").value.trim();
-    const model = isChat ? modelEl.value.trim() : "";
+    const kind = currentKind();
+    const needsRepo = kind === "repo" || kind === "code-chat";
+    const needsModel = kind === "chat" || kind === "code-chat";
+    const repoUrl = needsRepo ? card.querySelector("#p-repo").value.trim() : "";
+    const model = needsModel ? modelEl.value.trim() : "";
     const allowedRoleIds = getIds("p-roles");
+    const channelIds = channelScope === "all" ? [] : getIds("p-channels");
 
-    // Enforce required fields client-side so the admin can't advance the wizard
-    // with an incomplete project (the backend also validates as a backstop).
-    if (!isChat && !repoUrl) {
-      toast("Enter the GitHub repo URL for this coding agent.", true);
+    if (needsRepo && !repoUrl) {
+      toast(
+        kind === "code-chat"
+          ? "Enter a public GitHub repo URL for OpenRouter codebase Q&A."
+          : "Enter the GitHub repo URL for this coding agent.",
+        true,
+      );
       focusField("p-repo");
       return;
     }
-    if (isChat && !model) {
-      toast("Choose or enter a model for this chatbot.", true);
+    if (needsModel && !model) {
+      toast("Choose or enter a model for this provider.", true);
       focusField("p-model");
+      return;
+    }
+    if (channelScope === "selected" && channelIds.length === 0) {
+      toast("Select at least one channel, or click All channels.", true);
+      focusField("p-channels");
       return;
     }
     if (allowedRoleIds.length === 0) {
       toast("Select at least one allowed role.", true);
       focusField("p-roles");
+      return;
+    }
+
+    const providerId = providerSel.value || "cursor";
+    const apiKey = apiKeyEl.value.trim();
+    const needsKey = !hasConfiguredCredential(providerId, configuredCache);
+    if (needsKey && !apiKey) {
+      toast("Paste an API key for this AI.", true);
+      focusField("p-api-key");
       return;
     }
 
@@ -1584,30 +1961,45 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
       name,
       displayName,
       guildId: state.guildId,
-      provider: providerSel.value || "cursor",
-      channelIds: getIds("p-channels"),
+      provider: providerId,
+      channelScope,
+      channelIds,
       allowedRoleIds,
       repoUrl,
-      defaultBranch: isChat
-        ? undefined
-        : card.querySelector("#p-branch").value.trim() || undefined,
-      autoCreatePR: isChat ? false : card.querySelector("#p-pr").checked,
-      providerOptions: isChat ? { model } : {},
+      defaultBranch: needsRepo
+        ? card.querySelector("#p-branch").value.trim() || undefined
+        : undefined,
+      autoCreatePR: kind === "repo" ? card.querySelector("#p-pr").checked : false,
+      providerOptions: needsModel ? { model } : {},
     };
 
     saveBtn.disabled = true;
     try {
+      if (apiKey) {
+        await api("/api/credentials", {
+          method: "POST",
+          body: JSON.stringify({
+            orgId: state.orgId,
+            providerId: credentialStorageId(providerId),
+            apiKey,
+          }),
+        });
+        const storedId = credentialStorageId(providerId);
+        if (!configuredCache.includes(storedId)) {
+          configuredCache.push(storedId);
+        }
+        apiKeyEl.value = "";
+        updateApiKeyUi();
+      }
       await api("/api/projects", {
         method: "POST",
         body: JSON.stringify({ orgId: state.orgId, project }),
       });
       const wasEditing = Boolean(editingName);
-      toast(wasEditing ? "Project updated" : "Project added");
+      toast(wasEditing ? "Agent updated" : "Agent ready");
       resetForm();
-      // Collapse back to the list after saving; refresh() reopens if now empty.
       formOpen = false;
       await refresh();
-      // First project created during onboarding advances to the ready step.
       if (wasEmpty && !wasEditing && onFirstAdded) onFirstAdded();
     } catch (error) {
       toast(error.message, true);
@@ -1617,6 +2009,9 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
   };
 
   resetForm();
+  rebuildChannelPicker();
+  applyChannelScopeUi();
+  updateApiKeyUi();
   renderList(projectsCache);
   // When opened via "Edit" from the overview, jump straight into that project.
   if (editName) {
@@ -1628,25 +2023,29 @@ async function renderProjectsCard(initialProjects, onFirstAdded, editName, openF
 
 function renderReadyCard(projects, goTo) {
   const list = projects
-    .map(
-      (p) =>
-        `<li><strong>${escapeHtml(p.displayName || p.name)}</strong><span class="pill">${escapeHtml(
-          displayNameFor(p.provider),
-        )}</span></li>`,
-    )
+    .map((p) => {
+      const scope =
+        p.channelScope === "all" ||
+        (!p.channelScope && !(p.channelIds && p.channelIds.length))
+          ? "All channels"
+          : `${(p.channelIds || []).length} channel(s)`;
+      return `<li><strong>${escapeHtml(scope)}</strong> → ${escapeHtml(
+        p.displayName || p.name,
+      )} <span class="pill">${escapeHtml(displayNameFor(p.provider))}</span></li>`;
+    })
     .join("");
 
   const card = el(`
     <section class="card ready-card">
       <div class="ready-badge">✓</div>
       <h2>Relay is ready</h2>
-      <p class="hint">Your team can start using Relay in Discord right now.</p>
+      <p class="hint">In Discord, <code>/agent</code> uses this channel's agent. Want a different AI? Use a different channel.</p>
       <div class="ready-cmd"><span class="cm-slash">/agent</span> prompt: your question or task</div>
-      <h3 class="form-subtitle">Your projects</h3>
-      <ul class="ready-list">${list || `<li class="muted">No projects yet.</li>`}</ul>
+      <h3 class="form-subtitle">Channel → agent</h3>
+      <ul class="ready-list">${list || `<li class="muted">No agents yet.</li>`}</ul>
       <div class="wizard-actions">
         <button class="btn-ghost" id="ready-conn">Manage connections</button>
-        <button class="btn-ghost" id="ready-proj">Manage projects</button>
+        <button class="btn-ghost" id="ready-proj">Manage agents</button>
       </div>
       <p class="hint">Need help? See the <a href="/guide.html">setup guide</a>.</p>
     </section>

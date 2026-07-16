@@ -1,17 +1,29 @@
-import type { DecryptedCredential, ProviderDefinition } from "../registry.js";
+import type {
+  DecryptedCredential,
+  ProviderDefinition,
+  ProviderKind,
+} from "../registry.js";
 import type {
   AgentProvider,
+  AgentProviderCapabilities,
   AgentRun,
   CreateAgentInput,
   CreatedAgent,
 } from "../types.js";
+import {
+  CODE_CHAT_SYSTEM_PROMPT,
+  FILE_PICK_SYSTEM_PROMPT,
+  fetchSelectedFiles,
+  formatFilesForPrompt,
+  formatTreeForPrompt,
+  GitHubContextError,
+  loadRepoSnapshot,
+  pickPathsFromModelReply,
+} from "../../codebase/github-context.js";
 
 /**
- * Chat providers answer a prompt with a single LLM completion. Unlike the
- * repo-oriented Cursor provider, they don't clone a repository, open pull
- * requests, or keep durable server-side sessions — each prompt is one request.
- * They still implement {@link AgentProvider} so the same command flow, rate
- * limits, and status messages work for them.
+ * Chat providers answer a prompt with a single LLM completion. OpenRouter is
+ * available as chat (`openrouter`) or read-only codebase Q&A (`openrouter-code`).
  */
 
 class ChatError extends Error {
@@ -25,6 +37,11 @@ class ChatError extends Error {
   }
 }
 
+export interface ChatMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
 interface ChatBackend {
   id: string;
   displayName: string;
@@ -34,7 +51,7 @@ interface ChatBackend {
   complete(
     credential: DecryptedCredential,
     model: string,
-    prompt: string,
+    messages: ChatMessage[],
   ): Promise<string>;
   verify(credential: DecryptedCredential): Promise<void>;
 }
@@ -68,6 +85,10 @@ function requireText(value: string | undefined | null, provider: string): string
   return text;
 }
 
+function userPrompt(prompt: string): ChatMessage[] {
+  return [{ role: "user", content: prompt }];
+}
+
 /** OpenAI-compatible Chat Completions (OpenAI and OpenRouter). */
 function openAiCompatible(config: {
   id: string;
@@ -85,7 +106,7 @@ function openAiCompatible(config: {
     suggestedModels: config.suggestedModels,
     defaultModel: config.defaultModel,
     apiKeyHint: config.apiKeyHint,
-    async complete(credential, model, prompt) {
+    async complete(credential, model, messages) {
       const data = (await httpJson(
         `${credential.baseUrl ?? base}/chat/completions`,
         {
@@ -95,10 +116,7 @@ function openAiCompatible(config: {
             "content-type": "application/json",
             ...config.extraHeaders,
           },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: "user", content: prompt }],
-          }),
+          body: JSON.stringify({ model, messages }),
         },
         config.displayName,
       )) as { choices?: Array<{ message?: { content?: string } }> };
@@ -128,12 +146,7 @@ const openaiBackend = openAiCompatible({
   apiKeyHint: "platform.openai.com → API keys",
 });
 
-const openrouterBackend = openAiCompatible({
-  id: "openrouter",
-  displayName: "OpenRouter (free models)",
-  baseUrl: "https://openrouter.ai/api/v1",
-  defaultModel: "openrouter/free",
-  suggestedModels: [
+const openrouterModels = [
     "openrouter/free",
     "qwen/qwen3-next-80b-a3b-instruct:free",
     "qwen/qwen3-coder:free",
@@ -141,7 +154,27 @@ const openrouterBackend = openAiCompatible({
     "google/gemma-4-31b-it:free",
     "nvidia/nemotron-3-super-120b-a12b:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-  ],
+  ];
+
+const openrouterBackend = openAiCompatible({
+  id: "openrouter",
+  displayName: "OpenRouter",
+  baseUrl: "https://openrouter.ai/api/v1",
+  defaultModel: "openrouter/free",
+  suggestedModels: openrouterModels,
+  apiKeyHint: "openrouter.ai → Keys (many models are free)",
+  extraHeaders: {
+    "HTTP-Referer": "https://discord-agent-bot.d-az0617.workers.dev",
+    "X-Title": "Relay",
+  },
+});
+
+const openrouterCodeBackend = openAiCompatible({
+  id: "openrouter-code",
+  displayName: "OpenRouter",
+  baseUrl: "https://openrouter.ai/api/v1",
+  defaultModel: "openrouter/free",
+  suggestedModels: openrouterModels,
   apiKeyHint: "openrouter.ai → Keys (many models are free)",
   extraHeaders: {
     "HTTP-Referer": "https://discord-agent-bot.d-az0617.workers.dev",
@@ -160,7 +193,12 @@ const anthropicBackend: ChatBackend = {
     "claude-sonnet-4-0",
   ],
   apiKeyHint: "console.anthropic.com → API keys",
-  async complete(credential, model, prompt) {
+  async complete(credential, model, messages) {
+    const system = messages
+      .filter((m) => m.role === "system")
+      .map((m) => m.content)
+      .join("\n\n");
+    const nonSystem = messages.filter((m) => m.role !== "system");
     const data = (await httpJson(
       `${credential.baseUrl ?? "https://api.anthropic.com"}/v1/messages`,
       {
@@ -173,7 +211,11 @@ const anthropicBackend: ChatBackend = {
         body: JSON.stringify({
           model,
           max_tokens: 2048,
-          messages: [{ role: "user", content: prompt }],
+          ...(system ? { system } : {}),
+          messages: nonSystem.map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
         }),
       },
       "Anthropic (Claude)",
@@ -206,15 +248,28 @@ const geminiBackend: ChatBackend = {
     "gemini-1.5-pro",
   ],
   apiKeyHint: "aistudio.google.com → Get API key",
-  async complete(credential, model, prompt) {
+  async complete(credential, model, messages) {
     const base = credential.baseUrl ?? "https://generativelanguage.googleapis.com";
+    const system = messages
+      .filter((m) => m.role === "system")
+      .map((m) => m.content)
+      .join("\n\n");
+    const contents = messages
+      .filter((m) => m.role !== "system")
+      .map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
     const data = (await httpJson(
       `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(credential.apiKey)}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          ...(system
+            ? { systemInstruction: { parts: [{ text: system }] } }
+            : {}),
+          contents,
         }),
       },
       "Google Gemini",
@@ -236,16 +291,12 @@ const geminiBackend: ChatBackend = {
   },
 };
 
-class ChatAgentProvider implements AgentProvider {
-  readonly capabilities = {
-    durableAgents: false,
-    repositoryAccess: false,
-    pullRequests: false,
-  } as const;
+abstract class BaseChatProvider implements AgentProvider {
+  abstract readonly capabilities: AgentProviderCapabilities;
 
   constructor(
-    private readonly backend: ChatBackend,
-    private readonly credential: DecryptedCredential,
+    protected readonly backend: ChatBackend,
+    protected readonly credential: DecryptedCredential,
   ) {}
 
   get id(): string {
@@ -255,14 +306,14 @@ class ChatAgentProvider implements AgentProvider {
     return this.backend.displayName;
   }
 
-  private modelFrom(providerOptions?: Readonly<Record<string, unknown>>): string {
+  protected modelFrom(providerOptions?: Readonly<Record<string, unknown>>): string {
     const model = providerOptions?.model;
     return typeof model === "string" && model.trim()
       ? model.trim()
       : this.backend.defaultModel;
   }
 
-  private makeRun(result: string): AgentRun {
+  protected makeRun(result: string): AgentRun {
     const now = new Date().toISOString();
     return {
       id: `run-${crypto.randomUUID()}`,
@@ -274,26 +325,23 @@ class ChatAgentProvider implements AgentProvider {
     };
   }
 
-  async createAgent(input: CreateAgentInput): Promise<CreatedAgent> {
-    const model = this.modelFrom(input.providerOptions);
-    const result = await this.backend.complete(this.credential, model, input.prompt);
-    const run = this.makeRun(result);
-    return { agent: { id: run.agentId, name: input.name ?? this.displayName }, run };
-  }
-
   async createRun(
     _agentId: string,
     prompt: string,
     providerOptions?: Readonly<Record<string, unknown>>,
   ): Promise<AgentRun> {
+    // Follow-ups for non-durable providers go through createAgent in the
+    // workflow so repo context is preserved; this path stays for safety.
     const model = this.modelFrom(providerOptions);
-    const result = await this.backend.complete(this.credential, model, prompt);
+    const result = await this.backend.complete(
+      this.credential,
+      model,
+      userPrompt(prompt),
+    );
     return this.makeRun(result);
   }
 
   async getRun(agentId: string, runId: string): Promise<AgentRun> {
-    // Chat responses are returned synchronously, so nothing is polled. Return a
-    // terminal run defensively in case this is ever called.
     const now = new Date().toISOString();
     return {
       id: runId,
@@ -309,6 +357,9 @@ class ChatAgentProvider implements AgentProvider {
   }
 
   errorForUser(error: unknown): string {
+    if (error instanceof GitHubContextError) {
+      return error.message;
+    }
     if (error instanceof ChatError) {
       if (error.status === 401 || error.status === 403) {
         return `${this.displayName} authentication failed. An administrator should check the API key.`;
@@ -330,27 +381,125 @@ class ChatAgentProvider implements AgentProvider {
   verifyCredential(): Promise<void> {
     return this.backend.verify(this.credential);
   }
+
+  abstract createAgent(input: CreateAgentInput): Promise<CreatedAgent>;
 }
 
-function definitionFor(backend: ChatBackend): ProviderDefinition {
+class ChatAgentProvider extends BaseChatProvider {
+  readonly capabilities = {
+    durableAgents: false,
+    repositoryAccess: false,
+    pullRequests: false,
+  } as const;
+
+  async createAgent(input: CreateAgentInput): Promise<CreatedAgent> {
+    const model = this.modelFrom(input.providerOptions);
+    const result = await this.backend.complete(
+      this.credential,
+      model,
+      userPrompt(input.prompt),
+    );
+    const run = this.makeRun(result);
+    return { agent: { id: run.agentId, name: input.name ?? this.displayName }, run };
+  }
+}
+
+/** Two-pass read-only Q&A over a public GitHub repo (OpenRouter coding). */
+class CodeChatAgentProvider extends BaseChatProvider {
+  readonly capabilities = {
+    durableAgents: false,
+    repositoryAccess: true,
+    pullRequests: false,
+  } as const;
+
+  async createAgent(input: CreateAgentInput): Promise<CreatedAgent> {
+    const repoUrl = input.repoUrl?.trim() ?? "";
+    if (!repoUrl) {
+      throw new ChatError(
+        "This OpenRouter project has no GitHub repository URL saved in Relay. Open the dashboard → edit this OpenRouter project → set GitHub repo URL to https://github.com/owner/repo → click Update project. (Making the repo public on GitHub is not enough if the URL field is empty.)",
+        0,
+        false,
+      );
+    }
+
+    const model = this.modelFrom(input.providerOptions);
+    const snapshot = await loadRepoSnapshot(repoUrl, input.defaultBranch);
+    const treeText = formatTreeForPrompt(snapshot.treePaths);
+
+    const pickReply = await this.backend.complete(this.credential, model, [
+      { role: "system", content: FILE_PICK_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `Question:\n${input.prompt}\n\nRepository file tree:\n${treeText}`,
+      },
+    ]);
+
+    const selected = pickPathsFromModelReply(
+      pickReply,
+      new Set(snapshot.treePaths),
+    );
+    const files = await fetchSelectedFiles(snapshot, selected);
+    const context = formatFilesForPrompt(snapshot, files);
+
+    const result = await this.backend.complete(this.credential, model, [
+      { role: "system", content: CODE_CHAT_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `${context}\n\n---\nUser question:\n${input.prompt}`,
+      },
+    ]);
+
+    const run = this.makeRun(result);
+    return { agent: { id: run.agentId, name: input.name ?? this.displayName }, run };
+  }
+}
+
+function definitionFor(
+  backend: ChatBackend,
+  kind: ProviderKind,
+  capabilities: AgentProviderCapabilities,
+  factory: (credential: DecryptedCredential) => AgentProvider,
+): ProviderDefinition {
   return {
     id: backend.id,
     displayName: backend.displayName,
-    kind: "chat",
+    kind,
     suggestedModels: backend.suggestedModels,
     apiKeyHint: backend.apiKeyHint,
-    capabilities: {
-      durableAgents: false,
-      repositoryAccess: false,
-      pullRequests: false,
-    },
-    create: (credential) => new ChatAgentProvider(backend, credential),
+    capabilities,
+    create: factory,
   };
 }
 
 export const chatProviderDefinitions: ProviderDefinition[] = [
-  definitionFor(openaiBackend),
-  definitionFor(anthropicBackend),
-  definitionFor(geminiBackend),
-  definitionFor(openrouterBackend),
+  definitionFor(
+    openaiBackend,
+    "chat",
+    { durableAgents: false, repositoryAccess: false, pullRequests: false },
+    (credential) => new ChatAgentProvider(openaiBackend, credential),
+  ),
+  definitionFor(
+    anthropicBackend,
+    "chat",
+    { durableAgents: false, repositoryAccess: false, pullRequests: false },
+    (credential) => new ChatAgentProvider(anthropicBackend, credential),
+  ),
+  definitionFor(
+    geminiBackend,
+    "chat",
+    { durableAgents: false, repositoryAccess: false, pullRequests: false },
+    (credential) => new ChatAgentProvider(geminiBackend, credential),
+  ),
+  definitionFor(
+    openrouterBackend,
+    "chat",
+    { durableAgents: false, repositoryAccess: false, pullRequests: false },
+    (credential) => new ChatAgentProvider(openrouterBackend, credential),
+  ),
+  definitionFor(
+    openrouterCodeBackend,
+    "code-chat",
+    { durableAgents: false, repositoryAccess: true, pullRequests: false },
+    (credential) => new CodeChatAgentProvider(openrouterCodeBackend, credential),
+  ),
 ];

@@ -1,9 +1,10 @@
 import { defaultProviderRegistry } from "../agents/providers/index.js";
+import { credentialProviderId } from "../credentials/aliases.js";
 import { loadKeyRing } from "../credentials/encrypt.js";
 import { CredentialResolver } from "../credentials/resolver.js";
 import { createServiceClient, SupabaseStore } from "../db/supabase-store.js";
 import type { StoredProject } from "../db/types.js";
-import { validateProjectInput } from "../config/schema.js";
+import { validateProjectInput, channelAssignmentErrors } from "../config/schema.js";
 import { authenticate, type AdminIdentity } from "../auth/session.js";
 import {
   botInstallUrl,
@@ -247,7 +248,7 @@ async function handleProjectUpsert(
 ): Promise<Response> {
   const validation = validateProjectInput(rawProject);
   if (!validation.ok || !validation.project) {
-    return json({ error: "Invalid project", details: validation.errors }, 400);
+    return json({ error: "Invalid agent", details: validation.errors }, 400);
   }
   const project = validation.project;
 
@@ -260,7 +261,13 @@ async function handleProjectUpsert(
   const registry = defaultProviderRegistry();
   const capabilityErrors = registry.validateProject(project);
   if (capabilityErrors.length > 0) {
-    return json({ error: "Invalid project", details: capabilityErrors }, 400);
+    return json({ error: "Invalid agent", details: capabilityErrors }, 400);
+  }
+
+  const existing = await store.listProjects(orgId);
+  const conflictErrors = channelAssignmentErrors(existing, project);
+  if (conflictErrors.length > 0) {
+    return json({ error: "Invalid agent", details: conflictErrors }, 400);
   }
 
   const stored: StoredProject = { ...project, orgId };
@@ -291,7 +298,7 @@ async function handleCredentialUpsert(
   const encrypted = await resolver.encrypt(apiKey);
   await store.upsertCredential({
     orgId,
-    providerId,
+    providerId: credentialProviderId(providerId),
     ciphertext: encrypted.ciphertext,
     iv: encrypted.iv,
     keyVersion: encrypted.keyVersion,

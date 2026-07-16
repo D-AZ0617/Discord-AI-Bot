@@ -27,18 +27,15 @@
           they just type <code>/agent</code>.
         </p>
         <div class="callout">
-          <strong>What this bot does:</strong> Relay brings AI into Discord in two
-          ways, and you can use either or both.
-          <ul>
-            <li><strong>Chat</strong> — ask questions and get answers from ChatGPT,
-              Gemini, Claude, or OpenRouter (including free models) right in the
-              channel. No repo or code involved.</li>
-            <li><strong>Code</strong> — hand a task to a
-              <a href="https://cursor.com" target="_blank" rel="noopener">Cursor cloud agent</a>
-              that clones a GitHub repo, works on it, and can open a pull request.</li>
-          </ul>
-          You only set up the parts you want. A chat-only server never needs a repo
-          or a Cursor key; a coding server does.
+          <strong>Mental model:</strong> Each Discord <strong>channel has exactly one
+          Agent</strong>. <code>/agent</code> always uses that channel’s agent. Want a
+          different AI? Use a different channel, or change the channel’s agent in the
+          dashboard.
+        </div>
+        <div class="callout">
+          <strong>What this bot does:</strong> Chat (ChatGPT / Gemini / Claude),
+          read-only codebase Q&amp;A (OpenRouter + public GitHub repo), or coding
+          agents (Cursor + optional PRs). Mix them by giving each its own channel.
         </div>
       </section>
 
@@ -49,10 +46,13 @@
           <li>An API key for at least one AI provider (bring your own):
             <ul>
               <li><strong>For chatting:</strong> <strong>OpenAI (ChatGPT)</strong>,
-                <strong>Google Gemini</strong>, <strong>Anthropic (Claude)</strong>,
-                or <strong>OpenRouter</strong> (many free models) — no repo required.
-                OpenRouter is the quickest, cheapest way to start.</li>
-              <li><strong>For coding:</strong> <strong>Cursor</strong> cloud agents —
+                <strong>Google Gemini</strong>, or <strong>Anthropic (Claude)</strong>
+                — no repo required.</li>
+              <li><strong>For codebase Q&amp;A:</strong> an
+                <a href="https://openrouter.ai" target="_blank" rel="noopener">OpenRouter</a>
+                API key plus a <strong>public</strong>
+                <code>https://github.com/owner/repo</code> URL.</li>
+              <li><strong>For coding agents:</strong> <strong>Cursor</strong> cloud agents —
                 needs a <a href="https://cursor.com" target="_blank" rel="noopener">Cursor</a>
                 API key and a GitHub repo connected to Cursor.</li>
             </ul>
@@ -69,7 +69,7 @@
         </ul>
 
         <h2>Step 2 — Connect Cursor to GitHub (coding only, once)</h2>
-        <div class="callout">Only setting up chat (ChatGPT, Gemini, Claude, OpenRouter)? Skip this step and go straight to Step 3.</div>
+        <div class="callout">Only setting up chat (ChatGPT, Gemini, Claude) or OpenRouter codebase Q&amp;A? Skip this step and go straight to Step 3. OpenRouter reads public GitHub APIs directly and does not use the Cursor GitHub App.</div>
         <p>Cursor's cloud agent needs access to your repo to clone it and open PRs.</p>
         <ul>
           <li>Go to <a href="https://cursor.com/dashboard" target="_blank" rel="noopener">cursor.com/dashboard</a> → <strong>Integrations → GitHub</strong>.</li>
@@ -79,7 +79,7 @@
 
         <h2>Step 3 — Connect an AI provider</h2>
         <p>Opening a server starts a guided setup with three steps:
-          <strong>Connect AI</strong>, <strong>Create a project</strong>, and
+          <strong>Connect AI</strong>, <strong>Create an agent</strong>, and
           <strong>Ready to use</strong>. On the first step, first choose what you're
           adding — <strong>Generic AI Chatbot</strong> or <strong>Coding Agent</strong> —
           then pick the specific AI, paste your key, click <strong>Save key</strong>
@@ -88,120 +88,75 @@
           you want to use.</p>
         <table>
           <tr><th>Provider</th><th>Use</th><th>Where to get the key</th></tr>
-          <tr><td>OpenRouter (free models)</td><td>Chat</td><td>openrouter.ai → Keys</td></tr>
           <tr><td>OpenAI (ChatGPT)</td><td>Chat</td><td>platform.openai.com → API keys</td></tr>
           <tr><td>Google Gemini</td><td>Chat</td><td>aistudio.google.com → Get API key</td></tr>
           <tr><td>Anthropic (Claude)</td><td>Chat</td><td>console.anthropic.com → API keys</td></tr>
-          <tr><td>Cursor Cloud Agents</td><td>Coding</td><td>cursor.com/dashboard → Settings → API Keys (starts with <code>key_</code>)</td></tr>
+          <tr><td>OpenRouter (chat)</td><td>General chat — no repo</td><td>openrouter.ai → Keys</td></tr>
+          <tr><td>OpenRouter (codebase)</td><td>Read-only Q&amp;A on a public repo</td><td>openrouter.ai → Keys (same key)</td></tr>
+          <tr><td>Cursor Cloud Agents</td><td>Coding (edits + optional PRs)</td><td>cursor.com/dashboard → Settings → API Keys (starts with <code>key_</code>)</td></tr>
         </table>
         <div class="callout">Your key is encrypted before storage and never displayed again.</div>
       </section>
 
       <section class="card">
-        <h2>Step 4 — Create a project</h2>
-        <p>On the second step of the guided setup, create a project — this maps an
-          AI (and who can use it) to your server. Pick a <strong>Provider</strong>
-          first; the form then shows the right fields. Add as many projects as you
-          like, then finish to reach the <strong>Ready to use</strong> step. You can
-          revisit any step later to manage connections and projects.</p>
+        <h2>Step 4 — Create an agent</h2>
+        <p>An <strong>agent</strong> is one AI setup assigned to channels. Each channel
+          can have <strong>only one</strong> agent. <code>/agent</code> always uses
+          that channel’s agent.</p>
         <table>
           <tr><th>Field</th><th>What to enter</th></tr>
-          <tr><td>Project name</td><td>defaults to the selected AI provider's name. You can replace it with any friendly label; Relay creates the internal project ID automatically.</td></tr>
-          <tr><td>Provider</td><td>choose Cursor (repo work) or a chat model (ChatGPT, Gemini, Claude, OpenRouter)</td></tr>
-          <tr><td>GitHub repo URL <em>(Cursor)</em></td><td><code>https://github.com/owner/repo</code> (exact form, no extra path)</td></tr>
-          <tr><td>Default branch <em>(Cursor)</em></td><td>optional, e.g. <code>main</code></td></tr>
-          <tr><td>Model <em>(chat)</em></td><td>pick a suggested model or type any model id the provider supports</td></tr>
-          <tr><td>Channels</td><td>leave all unchecked = whole server, or pick specific channels</td></tr>
-          <tr><td>Allowed roles</td><td>check at least one role allowed to use the bot</td></tr>
-          <tr><td>Auto-create pull requests <em>(Cursor)</em></td><td>on if you want agents to open PRs</td></tr>
+          <tr><td>Agent name</td><td>Friendly label members see in Discord</td></tr>
+          <tr><td>Provider</td><td>Cursor, OpenRouter, ChatGPT, Gemini, or Claude</td></tr>
+          <tr><td>GitHub repo URL <em>(Cursor / OpenRouter)</em></td><td><code>https://github.com/owner/repo</code> (public for OpenRouter)</td></tr>
+          <tr><td>Model <em>(chat / OpenRouter)</em></td><td>Suggested model or any model id</td></tr>
+          <tr><td>Channels <em>(required)</em></td><td>Pick channels, or click <strong>All channels</strong></td></tr>
+          <tr><td>Allowed roles</td><td>At least one role (not @everyone)</td></tr>
+          <tr><td>Auto-create pull requests <em>(Cursor only)</em></td><td>On if you want PRs</td></tr>
         </table>
-
-        <h3>Getting Discord IDs</h3>
-        <p>Enable <strong>User Settings → Advanced → Developer Mode</strong>, then:</p>
-        <ul>
-          <li><strong>Role ID:</strong> Server Settings → Roles → right-click a role → <strong>Copy Role ID</strong>.</li>
-          <li><strong>Channel ID:</strong> right-click a channel → <strong>Copy Channel ID</strong>.</li>
-        </ul>
-        <div class="callout warn">
-          <strong>@everyone doesn't work as an allowed role.</strong> Discord never
-          lists the @everyone role on members, so it can't be matched. To allow your
-          whole team, create a real role (e.g. <code>AI Access</code>), assign it to
-          members, and use that role's ID.
+        <div class="callout">
+          <strong>All channels</strong> means this agent answers everywhere. You can’t
+          also assign other agents to specific channels. Prefer one agent per channel
+          when you want different AIs in different places.
         </div>
-
-        <h3>Multiple projects</h3>
-        <p>Add as many projects as you like — for example a chat model in one
-          channel and a Cursor coding agent in another, or several repos. Members
-          choose which project by:</p>
-        <ul>
-          <li><strong>Channel:</strong> map each project to its own channel(s), or</li>
-          <li><strong>Command option:</strong> leave channels blank and pass
-            <code>project:</code> (with autocomplete), e.g.
-            <code>/agent prompt: ... project: api</code>.</li>
-        </ul>
+        <div class="callout warn">
+          <strong>@everyone doesn't work as an allowed role.</strong> Create a real
+          role (e.g. <code>AI Access</code>) and use that.
+        </div>
       </section>
 
       <section class="card">
         <h2>Step 5 — Use it</h2>
-        <p>In a mapped channel (with your allowed role), just type <code>/agent</code>:</p>
-        <p><strong>Chat:</strong> <code>/agent prompt: what are good ways to structure a REST API?</code></p>
-        <p><strong>Coding:</strong> <code>/agent prompt: summarize what this repository does</code></p>
-        <p>For coding runs you'll see a <strong>Started</strong> embed that updates to
-          <strong>Running</strong> → <strong>Finished</strong>; chat replies come back
-          in the channel.</p>
+        <p>In a channel that has an agent:</p>
+        <p><code>/agent prompt: what are good ways to structure a REST API?</code></p>
         <table>
           <tr><th>Command</th><th>What it does</th></tr>
-          <tr><td><code>/agent prompt:&lt;text&gt; [project:&lt;slug&gt;]</code></td><td>Start, or continue this channel's agent</td></tr>
-          <tr><td><code>/agent-new prompt:&lt;text&gt;</code></td><td>Always start a fresh agent</td></tr>
-          <tr><td><code>/agent-cancel</code></td><td>Cancel the agent running in this channel and unlock it</td></tr>
-          <tr><td><code>/agent-status</code></td><td>Recent agents/runs in this channel/thread</td></tr>
-          <tr><td><code>/agent-projects</code></td><td>Projects you can access</td></tr>
+          <tr><td><code>/agent prompt:&lt;text&gt;</code></td><td>Ask this channel’s agent</td></tr>
+          <tr><td><code>/agent-new prompt:&lt;text&gt;</code></td><td>Fresh run (same agent)</td></tr>
+          <tr><td><code>/agent-cancel</code></td><td>Cancel the run in this channel</td></tr>
+          <tr><td><code>/agent-status</code></td><td>Recent runs here</td></tr>
+          <tr><td><code>/agent-list</code></td><td>Agents you can access</td></tr>
         </table>
-        <p><code>/cursor*</code> are aliases for the same commands.</p>
-
-        <h3>Switch AI for a single prompt</h3>
-        <p>Each channel has a default agent (the project mapped to it, or the
-          server-wide one). Anyone can override it <strong>for one prompt</strong>
-          — as long as they have an allowed role for that agent — without changing
-          the default for everyone else. Two ways:</p>
-        <ul>
-          <li><strong>Per-AI commands:</strong> <code>/agent-cursor</code>,
-            <code>/agent-openrouter</code>, <code>/agent-chatgpt</code>,
-            <code>/agent-claude</code>, <code>/agent-gemini</code> — each runs your
-            prompt with that AI's project.</li>
-          <li><strong>The <code>project:</code> option:</strong> on any
-            <code>/agent</code> command, e.g.
-            <code>/agent prompt: … project: relay</code> (autocomplete lists the
-            projects you can use).</li>
-        </ul>
-        <div class="callout">
-          Example: a channel defaults to OpenRouter for chat. A developer with the
-          Cursor role types <code>/agent-cursor prompt: fix the failing test</code>
-          to run that one prompt on the repo. Everyone else keeps chatting with
-          OpenRouter. If you have more than one project on the same AI, add
-          <code>project:</code> to pick which one.
-        </div>
+        <p>Want a different AI? Use a different channel (or change the channel’s agent in the dashboard).</p>
       </section>
 
       <section class="card">
         <h2>Troubleshooting</h2>
         <table>
           <tr><th>Message</th><th>Cause &amp; fix</th></tr>
-          <tr><td>"This server is not configured yet."</td><td>Finish Steps 1–4 in the dashboard.</td></tr>
-          <tr><td>"You do not have an allowed role…"</td><td>Your role isn't in the project's allowed roles. @everyone won't work — use a real role ID.</td></tr>
+          <tr><td>"This channel has no agent…"</td><td>Assign an agent to that channel, or use All channels.</td></tr>
+          <tr><td>"You do not have an allowed role…"</td><td>Add a real role (not @everyone) to the agent.</td></tr>
+          <tr><td>"Channel … is already assigned…"</td><td>Each channel has one agent — edit the other agent first.</td></tr>
           <tr><td>"No cursor API key is configured…"</td><td>Add and save your Cursor key (Step 3).</td></tr>
-          <tr><td>Save says "Invalid project"</td><td>Repo URL must be <code>https://github.com/owner/repo</code>; role/channel IDs must be numeric Discord IDs (17–20 digits).</td></tr>
-          <tr><td>"The SCM integration does not have access to repository…"</td><td>Connect the Cursor GitHub App to that repo (Step 2).</td></tr>
-          <tr><td>"Discord is rate-limiting the server list."</td><td>Wait ~60s and refresh; avoid rapid re-sign-ins.</td></tr>
+          <tr><td>Save says "Invalid agent"</td><td>Check repo URL, channels (required), and role IDs.</td></tr>
         </table>
       </section>
 
       <section class="card">
         <h2>Limits &amp; notes</h2>
         <ul>
-          <li>Each user can start a limited number of <strong>new</strong> agents per hour (default 5); follow-ups are unlimited.</li>
-          <li>One active run per channel+project at a time — wait for it to finish, or run <code>/agent-cancel</code> to stop it and unlock the channel.</li>
-          <li>Follow-up prompts in the same channel continue the same agent; use <code>/agent-new</code> to force a fresh one.</li>
+          <li>Limited <strong>new</strong> agents per user per hour; follow-ups are unlimited.</li>
+          <li>One active run per channel+agent at a time — or <code>/agent-cancel</code>.</li>
+          <li>Use <code>/agent-new</code> to force a fresh run in the same channel.</li>
         </ul>
         <div class="actions">
           <a href="/"><button class="btn-primary">Back to dashboard</button></a>

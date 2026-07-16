@@ -4,10 +4,10 @@ import type { DataStore, StoredProject, StoredRun } from "../db/types.js";
 import { isTerminalStatus } from "../agents/types.js";
 import {
   CANCEL_COMMANDS,
+  LIST_COMMANDS,
   NEW_AGENT_COMMANDS,
   PROJECTS_COMMANDS,
   PROMPT_COMMANDS,
-  PROVIDER_OVERRIDE_COMMANDS,
   STATUS_COMMANDS,
 } from "../discord/commands.js";
 import {
@@ -19,7 +19,6 @@ import {
   deferredPublic,
   ephemeralEmbed,
   ephemeralMessage,
-  getFocusedOption,
   getStringOption,
   routeChannelId,
   type DiscordInteraction,
@@ -28,8 +27,10 @@ import {
   projectsVisibleToCaller,
   resolveProjectAccess,
 } from "../security/access.js";
+import { isAllChannelsAgent } from "../config/schema.js";
 import { StartRateLimiter } from "../security/rate-limit.js";
 import { runEmbed, truncate } from "./responses.js";
+import { credentialProviderId, runtimeProviderId } from "../credentials/aliases.js";
 import { loadKeyRing } from "../credentials/encrypt.js";
 import { CredentialResolver } from "../credentials/resolver.js";
 import {
@@ -62,46 +63,16 @@ export class CommandRouter {
     const name = interaction.data?.name ?? "";
     if (PROMPT_COMMANDS.has(name)) return this.handlePrompt(interaction, false);
     if (NEW_AGENT_COMMANDS.has(name)) return this.handlePrompt(interaction, true);
-    const overrideProvider = PROVIDER_OVERRIDE_COMMANDS.get(name);
-    if (overrideProvider) {
-      return this.handlePrompt(interaction, false, overrideProvider);
-    }
     if (STATUS_COMMANDS.has(name)) return this.handleStatus(interaction);
-    if (PROJECTS_COMMANDS.has(name)) return this.handleProjects(interaction);
+    if (LIST_COMMANDS.has(name) || PROJECTS_COMMANDS.has(name)) {
+      return this.handleList(interaction);
+    }
     if (CANCEL_COMMANDS.has(name)) return this.handleCancel(interaction);
     return ephemeralMessage("Unknown command.");
   }
 
-  async handleAutocomplete(interaction: DiscordInteraction): Promise<Response> {
-    const guildId = interaction.guild_id ?? null;
-    if (!guildId) return autocompleteResult([]);
-    const installation = await this.store.getInstallationByGuild(guildId);
-    if (!installation) return autocompleteResult([]);
-    const roleIds = new Set(callerRoleIds(interaction));
-    const query = String(getFocusedOption(interaction)?.value ?? "").toLowerCase();
-    const overrideProvider = PROVIDER_OVERRIDE_COMMANDS.get(
-      interaction.data?.name ?? "",
-    );
-    const projects = projectsVisibleToCaller(
-      await this.store.listProjectsByGuild(guildId),
-      roleIds,
-    )
-      .filter((project) =>
-        overrideProvider ? project.provider === overrideProvider : true,
-      )
-      .filter(
-        (project) =>
-          project.name.includes(query) ||
-          project.displayName?.toLowerCase().includes(query),
-      )
-      .slice(0, 25)
-      .map((project) => ({
-        name: project.displayName
-          ? `${project.displayName} (${project.name})`
-          : project.name,
-        value: project.name,
-      }));
-    return autocompleteResult(projects);
+  async handleAutocomplete(_interaction: DiscordInteraction): Promise<Response> {
+    return autocompleteResult([]);
   }
 
   private setupHint(): string {
@@ -111,7 +82,6 @@ export class CommandRouter {
   private async handlePrompt(
     interaction: DiscordInteraction,
     forceNew: boolean,
-    forcedProviderId?: string,
   ): Promise<Response> {
     const guildId = interaction.guild_id ?? null;
     if (!guildId) {
@@ -135,29 +105,33 @@ export class CommandRouter {
       guildId,
       routeChannelId: routeChannelId(interaction),
       roleIds: new Set(callerRoleIds(interaction)),
-      requestedProject: getStringOption(interaction, "project"),
-      requestedProvider: forcedProviderId ?? null,
-      requestedProviderLabel: forcedProviderId
-        ? (this.registry.has(forcedProviderId)
-            ? this.registry.get(forcedProviderId).displayName
-            : forcedProviderId)
-        : null,
     });
     if (!access.allowed) return ephemeralMessage(access.message);
     const project = access.project;
+    const providerId = runtimeProviderId(project.provider, project.repoUrl);
 
-    if (!this.registry.has(project.provider)) {
+    if (!this.registry.has(providerId)) {
       return ephemeralMessage(
         `Provider \`${project.provider}\` is not available in this app.`,
       );
     }
     const credential = await this.store.getProviderCredential(
       installation.orgId,
-      project.provider,
+      credentialProviderId(providerId),
     );
     if (!credential) {
       return ephemeralMessage(
-        `No \`${project.provider}\` API key is configured for this server yet. An administrator can add one at ${this.env.PUBLIC_BASE_URL}`,
+        `No ${this.registry.get(providerId).displayName} API key is configured for this server yet. An administrator can add one at ${this.env.PUBLIC_BASE_URL}`,
+      );
+    }
+
+    const providerDef = this.registry.get(providerId);
+    if (
+      providerDef.kind === "code-chat" &&
+      !(project.repoUrl && project.repoUrl.trim())
+    ) {
+      return ephemeralMessage(
+        `Project **${project.displayName ?? project.name}** (\`${project.name}\`) is OpenRouter codebase Q&A but has no GitHub repo URL saved. In the dashboard, edit that project, set **GitHub repo URL** to \`https://github.com/owner/repo\`, and click **Update project**.`,
       );
     }
 
@@ -198,7 +172,7 @@ export class CommandRouter {
     const params: RunAgentParams = {
       orgId: installation.orgId,
       guildId,
-      providerId: project.provider,
+      providerId,
       project: {
         name: project.name,
         ...(project.displayName ? { displayName: project.displayName } : {}),
@@ -281,7 +255,7 @@ export class CommandRouter {
     });
   }
 
-  private async handleProjects(
+  private async handleList(
     interaction: DiscordInteraction,
   ): Promise<Response> {
     const guildId = interaction.guild_id ?? null;
@@ -298,21 +272,25 @@ export class CommandRouter {
     );
     if (projects.length === 0) {
       return ephemeralMessage(
-        "You do not have access to any configured projects in this server.",
+        "You do not have access to any configured agents in this server.",
       );
     }
     const lines = projects.map((project: StoredProject) => {
-      const scope =
-        project.channelIds.length === 0
-          ? "guild-wide"
-          : project.channelIds.map((id) => `<#${id}>`).join(", ");
-      return `• **${project.displayName ?? project.name}** (\`${project.name}\`) — ${project.provider} — ${scope}`;
+      const scope = isAllChannelsAgent(project)
+        ? "all channels"
+        : project.channelIds.map((id) => `<#${id}>`).join(", ");
+      const target = project.repoUrl?.trim()
+        ? project.repoUrl.trim()
+        : project.providerOptions?.model
+          ? `model ${String(project.providerOptions.model)}`
+          : "no repo/model";
+      return `• **${project.displayName ?? project.name}** — ${project.provider} — ${target} — ${scope}`;
     });
-    const overrideTip =
-      "\n\n_Tip: `/agent` uses this channel's default. To run one prompt with a different AI you can use, try `/agent-cursor`, `/agent-openrouter`, `/agent-chatgpt`, `/agent-claude`, `/agent-gemini`, or add the `project` option._";
+    const tip =
+      "\n\n_Tip: `/agent` always uses this channel's agent. Want a different AI? Use a different channel, or ask an admin to change the channel's agent in the dashboard._";
     return ephemeralEmbed({
-      title: "Projects you can access",
-      description: truncate(lines.join("\n") + overrideTip, 4000),
+      title: "Agents you can access",
+      description: truncate(lines.join("\n") + tip, 4000),
       color: BRAND_COLOR,
     });
   }
@@ -370,7 +348,6 @@ export class CommandRouter {
       guildId,
       routeChannelId: routeChannelId(interaction),
       roleIds: new Set(callerRoleIds(interaction)),
-      requestedProject: getStringOption(interaction, "project"),
     });
     if (!access.allowed) return access.message;
     const project = access.project;
@@ -400,10 +377,11 @@ export class CommandRouter {
 
     let providerNote = "";
     try {
-      if (this.registry.has(project.provider)) {
+      if (this.registry.has(runtimeProviderId(project.provider, project.repoUrl))) {
+        const providerId = runtimeProviderId(project.provider, project.repoUrl);
         const credential = await this.store.getProviderCredential(
           installation.orgId,
-          project.provider,
+          credentialProviderId(providerId),
         );
         if (credential) {
           const resolver = new CredentialResolver(
@@ -413,7 +391,7 @@ export class CommandRouter {
           );
           const provider = await resolver.providerFor(
             installation.orgId,
-            project.provider,
+            providerId,
           );
           if (provider.cancelRun) {
             await provider.cancelRun(active.agentId, active.runId);
@@ -428,7 +406,7 @@ export class CommandRouter {
                 updatedAt: new Date().toISOString(),
               },
               project,
-              this.registry.get(project.provider).displayName,
+              this.registry.get(providerId).displayName,
               provider.agentUrl(active.agentId),
             );
             await editChannelMessage(
