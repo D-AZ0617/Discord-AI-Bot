@@ -7,6 +7,7 @@ import {
   NEW_AGENT_COMMANDS,
   PROJECTS_COMMANDS,
   PROMPT_COMMANDS,
+  PROVIDER_OVERRIDE_COMMANDS,
   STATUS_COMMANDS,
 } from "../discord/commands.js";
 import {
@@ -61,6 +62,10 @@ export class CommandRouter {
     const name = interaction.data?.name ?? "";
     if (PROMPT_COMMANDS.has(name)) return this.handlePrompt(interaction, false);
     if (NEW_AGENT_COMMANDS.has(name)) return this.handlePrompt(interaction, true);
+    const overrideProvider = PROVIDER_OVERRIDE_COMMANDS.get(name);
+    if (overrideProvider) {
+      return this.handlePrompt(interaction, false, overrideProvider);
+    }
     if (STATUS_COMMANDS.has(name)) return this.handleStatus(interaction);
     if (PROJECTS_COMMANDS.has(name)) return this.handleProjects(interaction);
     if (CANCEL_COMMANDS.has(name)) return this.handleCancel(interaction);
@@ -74,10 +79,16 @@ export class CommandRouter {
     if (!installation) return autocompleteResult([]);
     const roleIds = new Set(callerRoleIds(interaction));
     const query = String(getFocusedOption(interaction)?.value ?? "").toLowerCase();
+    const overrideProvider = PROVIDER_OVERRIDE_COMMANDS.get(
+      interaction.data?.name ?? "",
+    );
     const projects = projectsVisibleToCaller(
       await this.store.listProjectsByGuild(guildId),
       roleIds,
     )
+      .filter((project) =>
+        overrideProvider ? project.provider === overrideProvider : true,
+      )
       .filter(
         (project) =>
           project.name.includes(query) ||
@@ -100,6 +111,7 @@ export class CommandRouter {
   private async handlePrompt(
     interaction: DiscordInteraction,
     forceNew: boolean,
+    forcedProviderId?: string,
   ): Promise<Response> {
     const guildId = interaction.guild_id ?? null;
     if (!guildId) {
@@ -124,6 +136,12 @@ export class CommandRouter {
       routeChannelId: routeChannelId(interaction),
       roleIds: new Set(callerRoleIds(interaction)),
       requestedProject: getStringOption(interaction, "project"),
+      requestedProvider: forcedProviderId ?? null,
+      requestedProviderLabel: forcedProviderId
+        ? (this.registry.has(forcedProviderId)
+            ? this.registry.get(forcedProviderId).displayName
+            : forcedProviderId)
+        : null,
     });
     if (!access.allowed) return ephemeralMessage(access.message);
     const project = access.project;
@@ -290,9 +308,11 @@ export class CommandRouter {
           : project.channelIds.map((id) => `<#${id}>`).join(", ");
       return `• **${project.displayName ?? project.name}** (\`${project.name}\`) — ${project.provider} — ${scope}`;
     });
+    const overrideTip =
+      "\n\n_Tip: `/agent` uses this channel's default. To run one prompt with a different AI you can use, try `/agent-cursor`, `/agent-openrouter`, `/agent-chatgpt`, `/agent-claude`, `/agent-gemini`, or add the `project` option._";
     return ephemeralEmbed({
       title: "Projects you can access",
-      description: truncate(lines.join("\n"), 4000),
+      description: truncate(lines.join("\n") + overrideTip, 4000),
       color: BRAND_COLOR,
     });
   }

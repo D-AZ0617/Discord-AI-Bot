@@ -46,6 +46,28 @@ function cancelCommand(name: string, description: string) {
   return { name, description, options: projectOption, dm_permission: false };
 }
 
+/**
+ * Per-prompt AI override commands. Each runs the prompt using the caller's
+ * accessible project for that specific provider, for that one invocation only —
+ * the channel's default project is unchanged for everyone else. Maps the slash
+ * command name to the provider id it targets.
+ */
+export const PROVIDER_OVERRIDE_COMMANDS = new Map<string, string>([
+  ["agent-cursor", "cursor"],
+  ["agent-openrouter", "openrouter"],
+  ["agent-chatgpt", "openai"],
+  ["agent-claude", "anthropic"],
+  ["agent-gemini", "google"],
+]);
+
+const providerOverrideCommands = [
+  promptCommand("agent-cursor", "Run this prompt with your Cursor agent (this prompt only)"),
+  promptCommand("agent-openrouter", "Run this prompt with your OpenRouter agent (this prompt only)"),
+  promptCommand("agent-chatgpt", "Run this prompt with your ChatGPT agent (this prompt only)"),
+  promptCommand("agent-claude", "Run this prompt with your Claude agent (this prompt only)"),
+  promptCommand("agent-gemini", "Run this prompt with your Gemini agent (this prompt only)"),
+];
+
 export const commandDefinitions = [
   promptCommand(
     "agent",
@@ -61,6 +83,7 @@ export const commandDefinitions = [
     "agent-cancel",
     "Cancel the agent currently running in this channel",
   ),
+  ...providerOverrideCommands,
   promptCommand("cursor", "Start an agent or continue this thread's agent"),
   promptCommand("cursor-agent", "Always start a new Cursor agent"),
   simpleCommand(

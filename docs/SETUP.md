@@ -1,21 +1,31 @@
 # Setup Guide — Relay
 
-Add **Relay** to your Discord server and let your team run Cursor cloud agents on
-your GitHub repos — or chat with ChatGPT, Gemini, and Claude — with `/agent`.
-Setup is **admin-only and one-time** (~5 min). Regular members don't set up
-anything — they just type `/agent`.
+Add **Relay** to your Discord server and let your team use AI with `/agent` —
+whatever they need it for. Setup is **admin-only and one-time** (~5 min). Regular
+members don't set up anything — they just type `/agent`.
 
-> **What this bot does:** it runs [Cursor Cloud Agents](https://cursor.com) that
-> clone a GitHub repo, work on it, and can open pull requests — all from Discord.
-> So you'll connect a Cursor API key and at least one GitHub repo.
+> **What this bot does:** Relay brings AI into Discord in two ways, and you can use
+> either or both:
+>
+> - **Chat** — ask questions and get answers from ChatGPT, Gemini, Claude, or
+>   OpenRouter (including free models) right in the channel. No repo or code involved.
+> - **Code** — hand a task to a [Cursor cloud agent](https://cursor.com) that clones
+>   a GitHub repo, works on it, and can open a pull request.
+>
+> You only set up the parts you want. A chat-only server never needs a repo or a
+> Cursor key; a coding server does.
 
 ---
 
 ## What you'll need
 
 - **Manage Server** permission on your Discord server.
-- A **Cursor account** with cloud agents (an API key) — https://cursor.com
-- At least one **GitHub repo**, with **GitHub connected to your Cursor account**.
+- An API key for at least one AI provider (bring your own):
+  - **For chatting:** OpenAI (ChatGPT), Google Gemini, Anthropic (Claude), or
+    OpenRouter (many free models) — no repo required. OpenRouter is the quickest,
+    cheapest way to start.
+  - **For coding:** a **Cursor account** with cloud agents (an API key) —
+    https://cursor.com — plus at least one **GitHub repo** connected to Cursor.
 
 ---
 
@@ -27,7 +37,10 @@ anything — they just type `/agent`.
    approve the install to continue setup automatically. Already-installed
    servers show **Configure** instead.
 
-## Step 2 — Connect Cursor to GitHub (once)
+## Step 2 — Connect Cursor to GitHub (coding only, once)
+
+> Only setting up chat (ChatGPT, Gemini, Claude, OpenRouter)? Skip this step and
+> go straight to Step 3.
 
 Cursor's cloud agent needs access to your repo to clone it and open PRs.
 
@@ -35,30 +48,43 @@ Cursor's cloud agent needs access to your repo to clone it and open PRs.
 2. Install/authorize the **Cursor GitHub App** on the account/org that owns your repo.
 3. Grant access to the repo(s) you'll use (or "All repositories").
 
-## Step 3 — Add your Cursor API key
+## Step 3 — Connect an AI provider
 
-1. In **https://cursor.com/dashboard → Settings → API Keys**, click **Create API
-   Key**, and copy it (starts with `key_...`, shown once).
-2. Back in the setup dashboard, select your server, then under **Provider keys**:
-   - **Provider:** Cursor Cloud Agents
-   - **API key:** paste your `key_...`
-   - Click **Save key**, then **Test connection** → should say **Connection OK**.
+Opening a server starts a guided setup with three steps: **Connect AI**,
+**Create a project**, and **Ready to use**. You can revisit any step later to
+manage connections and projects.
+
+On the **Connect AI** step, first choose what you're adding — **Generic AI
+Chatbot** or **Coding Agent** — then pick the specific AI, paste your key, click
+**Save key** (optionally **Test connection** → **Connection OK**), and Relay
+advances you automatically. Add a key for each AI you want to use.
+
+| Provider | Use | Where to get the key |
+|---|---|---|
+| OpenRouter (free models) | Chat | openrouter.ai → Keys |
+| OpenAI (ChatGPT) | Chat | platform.openai.com → API keys |
+| Google Gemini | Chat | aistudio.google.com → Get API key |
+| Anthropic (Claude) | Chat | console.anthropic.com → API keys |
+| Cursor Cloud Agents | Coding | cursor.com/dashboard → Settings → API Keys (starts with `key_...`) |
 
 > Your key is encrypted before storage and never displayed again.
 
 ## Step 4 — Create a project
 
-A "project" maps a repo (and who can use it) to your server. Add as many as you like.
+On the **Create a project** step, a "project" maps an AI (and who can use it) to
+your server. Pick a **Provider** first; the form then shows the right fields. Add
+as many as you like, then finish to reach **Ready to use**.
 
 | Field | What to enter |
 |---|---|
 | **Project name** | defaults to the selected AI provider's name. You can replace it with any friendly label; Relay creates the internal project ID automatically. |
-| **GitHub repo URL** | `https://github.com/owner/repo` (exact form, no extra path) |
-| **Default branch** | optional, e.g. `main` |
-| **Provider** | leave as `cursor` |
+| **Provider** | choose Cursor (repo work) or a chat model (ChatGPT, Gemini, Claude, OpenRouter) |
+| **GitHub repo URL** *(Cursor)* | `https://github.com/owner/repo` (exact form, no extra path) |
+| **Default branch** *(Cursor)* | optional, e.g. `main` |
+| **Model** *(chat)* | pick a suggested model or type any model id the provider supports |
 | **Channel IDs** | blank = whole server, or specific channel IDs |
 | **Allowed role IDs** | at least one **role ID** allowed to use the bot |
-| **Auto-create pull requests** | on if you want agents to open PRs |
+| **Auto-create pull requests** *(Cursor)* | on if you want agents to open PRs |
 
 Click **Save project**.
 
@@ -72,21 +98,27 @@ Enable **User Settings → Advanced → Developer Mode**, then:
 > team, create a real role (e.g. `AI Access`), assign it to members, and use that
 > role's ID.
 
-### Multiple repos
-Just create one project per repo. Members choose which repo by:
-- **Channel:** map each repo to its own channel(s), or
+### Multiple projects
+Add as many projects as you like — for example a chat model in one channel and a
+Cursor coding agent in another, or several repos. Members choose which project by:
+- **Channel:** map each project to its own channel(s), or
 - **Command option:** leave channels blank and pass `project:` (with autocomplete),
   e.g. `/agent prompt: ... project: api`.
 
 ## Step 5 — Use it
 
-In a mapped channel (with your allowed role):
+In a mapped channel (with your allowed role), just type `/agent`:
 
 ```
+# Chat
+/agent prompt: what are good ways to structure a REST API?
+
+# Coding
 /agent prompt: summarize what this repository does
 ```
 
-You'll see a **Started** embed that updates to **Running** → **Finished**.
+For coding runs you'll see a **Started** embed that updates to **Running** →
+**Finished**; chat replies come back in the channel.
 
 | Command | What it does |
 |---|---|
@@ -97,6 +129,22 @@ You'll see a **Started** embed that updates to **Running** → **Finished**.
 | `/agent-projects` | Projects you can access |
 
 `/cursor*` are aliases for the same commands.
+
+### Switch AI for a single prompt
+
+Each channel has a default agent (the project mapped to it, or the server-wide
+one). Anyone with an allowed role for another agent can override it **for one
+prompt** — without changing the default for everyone else:
+
+- **Per-AI commands:** `/agent-cursor`, `/agent-openrouter`, `/agent-chatgpt`,
+  `/agent-claude`, `/agent-gemini` — each runs your prompt with that AI's project.
+- **The `project:` option:** on any `/agent` command, e.g.
+  `/agent prompt: … project: relay` (autocomplete lists the projects you can use).
+
+> Example: a channel defaults to OpenRouter for chat. A developer with the Cursor
+> role runs `/agent-cursor prompt: fix the failing test` to use the repo for that
+> one prompt; everyone else keeps chatting with OpenRouter. If you have more than
+> one project on the same AI, add `project:` to pick which one.
 
 ---
 

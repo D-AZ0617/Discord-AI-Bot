@@ -8,6 +8,21 @@ let supabase = null;
 let config = null;
 let session = null;
 let state = { orgId: null };
+// Tracks which wizard step the current org view is on, so navigation within a
+// server persists across re-renders but resets when switching servers.
+let orgView = {
+  orgId: null,
+  view: "overview",
+  step: 1,
+  editProjectName: null,
+  openForm: false,
+};
+// Cached list of manageable servers so navigating back to the list doesn't
+// refetch every time. Invalidated on install, user change, or manual refresh.
+let guildsCache = null;
+// Provider chosen on the "Connect AI" step, used to pre-select the matching
+// fields when the admin moves on to create their first project.
+let pendingProjectProvider = null;
 
 function toast(message, isError = false) {
   toastEl.textContent = message;
@@ -96,6 +111,7 @@ async function boot() {
     }
     if (previousUserId !== nextUserId) {
       state = { orgId: null };
+      guildsCache = null;
       render();
     }
   });
@@ -125,6 +141,7 @@ function renderAccount() {
     await supabase.auth.signOut();
     sessionStorage.removeItem("discord_provider_token");
     state = { orgId: null };
+    guildsCache = null;
   };
   accountEl.append(signOut);
 }
@@ -156,11 +173,12 @@ function renderLogin() {
     <section class="lp-hero">
       <div>
         <img src="/relay-logo-full.png" alt="Relay — Collaborative AI for Discord" class="lp-logo" />
-        <h1 class="lp-title">Bring AI agents to your server with <span class="accent">one command</span></h1>
+        <h1 class="lp-title">Bring AI to your server with <span class="accent">one command</span></h1>
         <p class="lp-sub">
-          Relay drops collaborative AI into Discord. Members type
-          <code>/agent</code> to run a Cursor cloud agent on your GitHub repo — or
-          chat with ChatGPT, Gemini, and Claude — right where your team already talks.
+          Relay brings AI into Discord. Members type <code>/agent</code> to chat
+          with ChatGPT, Gemini, Claude, or free OpenRouter models — or hand a
+          coding task to a Cursor cloud agent that opens a pull request. Whatever
+          your team needs AI for, it happens right where you already talk.
         </p>
         <div class="lp-cta">
           <button class="btn-discord btn-lg" id="lp-signin">${discordGlyph} Integrate now — sign in with Discord</button>
@@ -171,10 +189,28 @@ function renderLogin() {
       <div>
         <div class="chat-mock">
           <div class="cm-row">
+            <div class="cm-avatar user">J</div>
+            <div class="cm-body">
+              <div class="cm-name">jamie<span class="cm-time">Today at 2:14 PM</span></div>
+              <div class="cm-cmd"><span class="cm-slash">/agent</span> prompt: explain the difference between REST and GraphQL</div>
+            </div>
+          </div>
+          <div class="cm-row">
+            <div class="cm-avatar bot">◆</div>
+            <div class="cm-body">
+              <div class="cm-name">Relay<span class="cm-badge">APP</span><span class="cm-time">Today at 2:14 PM</span></div>
+              <div class="cm-embed">
+                <div class="cm-embed-title">Answer · Ask Anything</div>
+                <div class="cm-embed-field">REST exposes fixed endpoints that each return a set shape of data, while GraphQL uses one endpoint where the client asks for exactly the fields it needs…</div>
+                <div class="cm-embed-meta">OpenRouter · openrouter/free</div>
+              </div>
+            </div>
+          </div>
+          <div class="cm-row">
             <div class="cm-avatar user">A</div>
             <div class="cm-body">
               <div class="cm-name">alex<span class="cm-time">Today at 2:31 PM</span></div>
-              <div class="cm-cmd"><span class="cm-slash">/agent</span> prompt: add a dark mode toggle to settings</div>
+              <div class="cm-cmd"><span class="cm-slash">/agent</span> prompt: add a dark mode toggle to settings project: website</div>
             </div>
           </div>
           <div class="cm-row">
@@ -183,7 +219,7 @@ function renderLogin() {
               <div class="cm-name">Relay<span class="cm-badge">APP</span><span class="cm-time">Today at 2:34 PM</span></div>
               <div class="cm-embed">
                 <div class="cm-embed-title">Finished · Website</div>
-                <div class="cm-embed-field">Branch: <span class="link">cursor/dark-mode-toggle</span></div>
+                <div class="cm-embed-field">Branch: <span class="link">feature/dark-mode-toggle</span></div>
                 <div class="cm-embed-field">Pull request: <span class="link">#128 Add dark mode toggle</span></div>
                 <div class="cm-embed-meta">Cursor Cloud Agents · main</div>
               </div>
@@ -197,9 +233,9 @@ function renderLogin() {
   const highlights = el(`
     <section class="lp-highlights">
       <span class="lp-chip"><span class="dot"></span> Runs in the cloud — nothing to host</span>
-      <span class="lp-chip"><span class="dot"></span> Opens a PR on every task</span>
-      <span class="lp-chip"><span class="dot"></span> Bring your own Cursor key</span>
-      <span class="lp-chip"><span class="dot"></span> ~5-minute setup</span>
+      <span class="lp-chip"><span class="dot"></span> Chat with top models or run coding agents</span>
+      <span class="lp-chip"><span class="dot"></span> Works with ChatGPT, Gemini, Claude &amp; OpenRouter</span>
+      <span class="lp-chip"><span class="dot"></span> Bring your own AI keys · ~5-minute setup</span>
     </section>
   `);
 
@@ -207,38 +243,38 @@ function renderLogin() {
     <section class="lp-section reveal" id="features">
       <div class="lp-section-head">
         <h2>Why add it to your server</h2>
-        <p>Turn conversations into shipped code. Perfect for open-source projects, dev teams, and study groups.</p>
+        <p>Whatever your team uses AI for — answering questions, brainstorming, or shipping code — Relay brings it into Discord. Great for communities, dev teams, study groups, and support servers.</p>
       </div>
       <div class="feature-grid">
         <div class="feature">
+          <div class="ic">💬</div>
+          <h3>Chat with top AI models</h3>
+          <p>Ask questions and get answers from ChatGPT, Gemini, Claude, or free OpenRouter models — right in the channel, no repo or member setup required.</p>
+        </div>
+        <div class="feature">
           <div class="ic">⚡</div>
           <h3>Code without leaving Discord</h3>
-          <p>Kick off real coding tasks from any channel. The agent runs in the cloud and reports back with results and PRs.</p>
+          <p>Hand a coding task to a Cursor cloud agent. It runs in the cloud, works on your repo, and reports back with results.</p>
         </div>
         <div class="feature">
           <div class="ic">🔀</div>
           <h3>Automatic pull requests</h3>
-          <p>Every task can open a GitHub PR on its own branch, so nothing lands without review. Follow-ups continue the same agent.</p>
+          <p>For coding projects, every task can open a GitHub PR on its own branch, so nothing lands without review.</p>
         </div>
         <div class="feature">
           <div class="ic">🔒</div>
           <h3>Roles &amp; channels you control</h3>
-          <p>Map repos to channels and pick exactly which roles can use the bot. Your Cursor key is encrypted and never shared.</p>
+          <p>Pick exactly which roles can use each project and where. Your API keys are encrypted and never shared.</p>
         </div>
         <div class="feature">
-          <div class="ic">📁</div>
-          <h3>Multiple repos</h3>
-          <p>Wire up as many repositories as you want — one per channel, or switch between them with a simple option.</p>
+          <div class="ic">🧩</div>
+          <h3>One bot, many providers</h3>
+          <p>Run several projects side by side — a chat model in one channel, a coding agent in another, and switch with a simple option.</p>
         </div>
         <div class="feature">
           <div class="ic">👀</div>
           <h3>Live status updates</h3>
-          <p>Watch each run go from Started to Running to Finished in real time, with a link straight to the agent.</p>
-        </div>
-        <div class="feature">
-          <div class="ic">🛑</div>
-          <h3>Full control</h3>
-          <p>Cancel a running agent anytime with <code>/agent-cancel</code>, check history with <code>/agent-status</code>.</p>
+          <p>Watch each run go from Started to Finished in real time, with a link straight to the result.</p>
         </div>
       </div>
     </section>
@@ -258,13 +294,13 @@ function renderLogin() {
         </div>
         <div class="how-step">
           <div class="num">2</div>
-          <h3>Connect a repo</h3>
-          <p>Add your Cursor API key, link a GitHub repo, and choose the roles and channels allowed to use it.</p>
+          <h3>Connect an AI</h3>
+          <p>Add a key for the AI you want — a chat model like ChatGPT, Gemini, Claude, or OpenRouter, or Cursor for coding agents — then pick the roles and channels allowed to use it.</p>
         </div>
         <div class="how-step">
           <div class="num">3</div>
           <h3>Type <code>/agent</code></h3>
-          <p>Your team starts shipping. The agent works in the cloud and posts results back to the channel.</p>
+          <p>Your team starts asking and building. Relay works in the cloud and posts answers or results back to the channel.</p>
         </div>
       </div>
     </section>
@@ -279,9 +315,10 @@ function renderLogin() {
       <div class="cmd-grid">
         <div class="cmd-row"><code>/agent</code><span>Start or continue this channel's agent</span></div>
         <div class="cmd-row"><code>/agent-new</code><span>Always start a fresh agent</span></div>
+        <div class="cmd-row"><code>/agent-cursor</code><span>Run one prompt with a specific AI (also -openrouter, -chatgpt, -claude, -gemini)</span></div>
         <div class="cmd-row"><code>/agent-cancel</code><span>Stop the running agent and unlock the channel</span></div>
-        <div class="cmd-row"><code>/agent-status</code><span>See recent agents and runs here</span></div>
-        <div class="cmd-row"><code>/agent-projects</code><span>List the repos you can access</span></div>
+        <div class="cmd-row"><code>/agent-status</code><span>See recent runs here</span></div>
+        <div class="cmd-row"><code>/agent-projects</code><span>List the projects you can access</span></div>
         <div class="cmd-row"><code>/cursor…</code><span>Aliases for all of the above</span></div>
       </div>
     </section>
@@ -295,28 +332,36 @@ function renderLogin() {
       </div>
       <div class="faq">
         <details class="faq-item">
+          <summary>What can I use it for?</summary>
+          <div class="faq-body">Two things, and you can do either or both. <strong>Chat:</strong> ask questions and get answers from ChatGPT, Gemini, Claude, or OpenRouter — great for Q&amp;A, brainstorming, and support. <strong>Code:</strong> hand a task to a Cursor cloud agent that works on your GitHub repo and can open a pull request.</div>
+        </details>
+        <details class="faq-item">
           <summary>Is it free?</summary>
-          <div class="faq-body">The bot itself is free to add and use. Cloud agents run on your own Cursor account, so you only pay Cursor for the agent usage with your own API key.</div>
+          <div class="faq-body">The bot is free to add and use. AI runs on your own provider accounts, so you bring your own keys and only pay the provider for what you use. OpenRouter even offers free models to get started at no cost.</div>
         </details>
         <details class="faq-item">
           <summary>Do I need to host or deploy anything?</summary>
           <div class="faq-body">No. The bot is fully hosted. You just sign in with Discord, invite it to your server, and configure everything from this dashboard.</div>
         </details>
         <details class="faq-item">
-          <summary>Is my Cursor API key safe?</summary>
-          <div class="faq-body">Yes. Your key is encrypted before it's stored and is never displayed again or shared with members. Only the bot's backend can use it to launch agents on your behalf.</div>
+          <summary>Which AI providers are supported?</summary>
+          <div class="faq-body">For chat: OpenAI (ChatGPT), Google Gemini, Anthropic (Claude), and OpenRouter (including free models). For coding tasks that work on a repo and open PRs: Cursor cloud agents. Add whichever you like — no need to use all of them.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Are my API keys safe?</summary>
+          <div class="faq-body">Yes. Each key is encrypted before it's stored and is never displayed again or shared with members. Only the bot's backend can use it on your behalf.</div>
         </details>
         <details class="faq-item">
           <summary>Who can use the bot in my server?</summary>
-          <div class="faq-body">You decide. Each project is mapped to specific roles and channels, so only the members you allow can start agents — and only in the channels you choose.</div>
+          <div class="faq-body">You decide. Each project is mapped to specific roles and channels, so only the members you allow can use it — and only in the channels you choose.</div>
         </details>
         <details class="faq-item">
-          <summary>Can I connect more than one repository?</summary>
-          <div class="faq-body">Absolutely. Add as many repos as you like — map each to its own channel, or let members switch between them with a <code>project</code> option on the command.</div>
+          <summary>Can I set up more than one AI or project?</summary>
+          <div class="faq-body">Absolutely. Add as many projects as you like — run a chat model in one channel and a coding agent in another, connect multiple repos, or let members switch with a <code>project</code> option on the command.</div>
         </details>
         <details class="faq-item">
-          <summary>What does it do with my code?</summary>
-          <div class="faq-body">A Cursor cloud agent clones your GitHub repo, makes changes on a new branch, and can open a pull request so nothing lands without review. See the <a href="/guide.html">setup guide</a> for details.</div>
+          <summary>Does it access my code?</summary>
+          <div class="faq-body">Only coding projects touch code. A Cursor cloud agent clones your GitHub repo, works on a new branch, and can open a pull request so nothing lands without review. Chat projects never access any repo. See the <a href="/guide.html">setup guide</a> for details.</div>
         </details>
         <details class="faq-item">
           <summary>What if an agent gets stuck?</summary>
@@ -329,7 +374,7 @@ function renderLogin() {
   const cta = el(`
     <section class="cta-band reveal">
       <h2>Ready to integrate?</h2>
-      <p>Add the AI bot to your server in minutes.</p>
+      <p>Add Relay to your server in minutes — chat or code, your call.</p>
       <button class="btn-discord btn-lg" id="lp-signin-2">${discordGlyph} Integrate now — sign in with Discord</button>
     </section>
   `);
@@ -338,7 +383,7 @@ function renderLogin() {
     <footer class="lp-footer">
       <div class="lp-footer-about">
         <img src="/relay-wordmark.png" alt="Relay" class="brand-logo" />
-        <p>Collaborative AI for Discord. Ship code, open pull requests, and chat with top AI models — all without leaving your server.</p>
+        <p>Collaborative AI for Discord. Chat with top AI models or run coding agents that open pull requests — all without leaving your server.</p>
       </div>
       <div>
         <h4>Product</h4>
@@ -350,13 +395,17 @@ function renderLogin() {
         <h4>Resources</h4>
         <a href="/guide.html">Setup guide</a>
         <a href="https://github.com/D-AZ0617/Discord-AI-Bot" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://cursor.com" target="_blank" rel="noopener">Cursor</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/privacy.html">Privacy Policy</a>
       </div>
     </footer>
   `);
 
   const footerBottom = el(`
-    <div class="lp-footer-bottom">Relay · Collaborative AI for Discord · Not affiliated with Discord Inc.</div>
+    <div class="lp-footer-bottom">Relay · Collaborative AI for Discord · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a> · Not affiliated with Discord Inc.</div>
   `);
 
   app.append(hero, highlights, features, how, commands, faq, cta, footer, footerBottom);
@@ -385,32 +434,103 @@ function setupReveal() {
   items.forEach((el) => observer.observe(el));
 }
 
-async function renderServers() {
+/**
+ * Discord CDN URL for a guild icon, or null when the server has no icon.
+ * The `size` query must be a power of two (Discord rejects other values), so we
+ * always request a fixed 128px and let CSS scale it down for display.
+ */
+function guildIconUrl(guild) {
+  if (!guild || !guild.icon) return null;
+  const ext = String(guild.icon).startsWith("a_") ? "gif" : "png";
+  return `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.${ext}?size=128`;
+}
+
+/** Two-letter initials for the icon fallback badge. */
+function serverInitials(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Rounded avatar for a server. Initials always render underneath; when the
+ * server has an icon we overlay the real image, which removes itself on error
+ * so the initials remain a graceful fallback.
+ */
+function serverAvatar(guild, size = 48) {
+  const url = guildIconUrl(guild);
+  const initials = escapeHtml(serverInitials(guild && guild.name));
+  const image = url
+    ? `<img class="srv-img" src="${url}" alt="" loading="lazy" onerror="this.remove()" />`
+    : "";
+  return `<span class="srv-avatar srv-avatar-fallback" style="width:${size}px;height:${size}px"><span class="srv-initials">${initials}</span>${image}</span>`;
+}
+
+async function renderServers(forceReload = false) {
   app.innerHTML = "";
   const listCard = el(`
     <section class="card">
-      <h2>Choose a server</h2>
-      <p class="hint">Add Relay to a server you manage, or continue configuring one where it is already installed.</p>
-      <div class="list" id="guilds"><p class="muted">Loading servers…</p></div>
+      <div class="card-head">
+        <div>
+          <h2>Your servers</h2>
+          <p class="hint">Add Relay to a server you manage, or continue configuring one where it's already installed.</p>
+        </div>
+        <button class="btn-ghost btn-refresh" id="refresh-guilds" title="Reload your server list from Discord">↻ Refresh</button>
+      </div>
+      <div class="server-grid" id="guilds"></div>
     </section>
   `);
   app.append(listCard);
+  app.append(renderHelpCard());
 
   const guildsEl = listCard.querySelector("#guilds");
+  const refreshBtn = listCard.querySelector("#refresh-guilds");
+  refreshBtn.onclick = () => {
+    guildsCache = null;
+    renderServers(true);
+  };
+
   const token = providerToken();
   if (!token) {
     guildsEl.innerHTML = `<p class="muted">Re-sign in to grant server access.</p>`;
     return;
   }
-  try {
-    const { guilds } = await api("/api/guilds", {
-      headers: { "x-discord-provider-token": token },
-    });
+
+  let guilds = guildsCache;
+  if (!guilds || forceReload) {
+    guildsEl.innerHTML = `<p class="muted">Loading servers…</p>`;
+    refreshBtn.disabled = true;
+    try {
+      const res = await api("/api/guilds", {
+        headers: { "x-discord-provider-token": token },
+      });
+      guilds = res.guilds;
+      guildsCache = guilds;
+    } catch (error) {
+      guildsEl.innerHTML = `<p class="muted">${escapeHtml(error?.message || String(error))}</p>`;
+      refreshBtn.disabled = false;
+      return;
+    }
+    refreshBtn.disabled = false;
+  }
+
+  {
     guildsEl.innerHTML = "";
     if (guilds.length === 0) {
       guildsEl.innerHTML = `<p class="muted">No manageable servers found.</p>`;
       return;
     }
+
+    const openOrg = (guild) => {
+      state = {
+        orgId: guild.orgId,
+        guildId: guild.id,
+        guildName: guild.name,
+        guildIcon: guild.icon ?? null,
+      };
+      render();
+    };
 
     const finishInstallation = async (guild, button) => {
       const install = async () =>
@@ -428,8 +548,8 @@ async function renderServers() {
         // If Relay is already present but has not been registered in the
         // dashboard yet, skip sending the admin through Discord again.
         const { orgId } = await install();
-        state = { orgId, guildId: guild.id, guildName: guild.name };
-        render();
+        guildsCache = null;
+        openOrg({ ...guild, orgId });
         return;
       } catch {
         // A new server needs the Discord authorization step first.
@@ -452,8 +572,8 @@ async function renderServers() {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         try {
           const { orgId } = await install();
-          state = { orgId, guildId: guild.id, guildName: guild.name };
-          render();
+          guildsCache = null;
+          openOrg({ ...guild, orgId });
           return;
         } catch (error) {
           lastError = error;
@@ -469,61 +589,36 @@ async function renderServers() {
       );
     };
 
-    for (const guild of guilds) {
-      const item = el(`
-        <div class="item">
-          <div><strong>${escapeHtml(guild.name)}</strong>
-          <div class="meta">${guild.id}</div></div>
+    // Show already-configured servers first so returning admins land on them.
+    const sorted = [...guilds].sort(
+      (a, b) => Number(Boolean(b.orgId)) - Number(Boolean(a.orgId)),
+    );
+    for (const guild of sorted) {
+      const configured = Boolean(guild.orgId);
+      const card = el(`
+        <div class="server-card ${configured ? "is-configured" : ""}">
+          <div class="server-id">
+            ${serverAvatar(guild, 52)}
+            <div class="server-meta">
+              <strong>${escapeHtml(guild.name)}</strong>
+              <span class="server-status ${configured ? "on" : ""}">
+                <span class="dot"></span>${configured ? "Configured" : "Not added yet"}
+              </span>
+            </div>
+          </div>
+          <button class="${configured ? "btn-ghost" : "btn-primary"} server-action">${
+            configured ? "Configure" : "Add to Discord"
+          }</button>
         </div>
       `);
-      const action = el(
-        `<button class="btn-primary">${guild.orgId ? "Configure" : "Add to Discord"}</button>`,
-      );
+      const action = card.querySelector(".server-action");
       action.onclick = () => {
-        if (guild.orgId) {
-          state = {
-            orgId: guild.orgId,
-            guildId: guild.id,
-            guildName: guild.name,
-          };
-          render();
-          return;
-        }
+        if (configured) return openOrg(guild);
         finishInstallation(guild, action);
       };
-      item.append(action);
-      guildsEl.append(item);
+      guildsEl.append(card);
     }
-  } catch (error) {
-    guildsEl.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
   }
-}
-
-async function renderOrg() {
-  app.innerHTML = "";
-  const back = el(`<button class="btn-ghost">← Back to servers</button>`);
-  back.onclick = () => {
-    state = { orgId: null };
-    render();
-  };
-  app.append(back);
-
-  const serverName = state.guildName ? escapeHtml(state.guildName) : "your server";
-  const hints = el(`
-    <section class="card hint-card">
-      <h2>Configuring ${serverName}</h2>
-      <ol class="steps">
-        <li><strong>Add a provider key</strong> — bring your own key for Cursor, OpenAI, Gemini, Claude, or OpenRouter. Use <em>Test connection</em> to confirm it works.</li>
-        <li><strong>Create a project</strong> — connect a repo (Cursor) or pick a chat model, then choose which channels and roles can use it.</li>
-        <li><strong>Try it in Discord</strong> — a permitted member types <code>/agent prompt: …</code> in a mapped channel.</li>
-      </ol>
-      <p class="hint">Tips: leave channels unchecked to allow the whole server · one active run per channel — use <code>/agent-cancel</code> to stop one · full walkthrough in the <a href="/guide.html">setup guide</a>.</p>
-    </section>
-  `);
-  app.append(hints);
-
-  await renderCredentials();
-  await renderProjects();
 }
 
 function providerList() {
@@ -536,106 +631,585 @@ function displayNameFor(id) {
   return providerById(id)?.displayName || id;
 }
 
-async function renderCredentials() {
-  const providers = providerList();
-  const options = providers
-    .map((p) => `<option value="${p.id}">${escapeHtml(p.displayName)}</option>`)
-    .join("");
+async function renderOrg() {
+  app.innerHTML = "";
 
-  const card = el(`
-    <section class="card">
-      <h2>AI provider keys</h2>
-      <p class="hint">Add a key for each AI you want to use. Keys are encrypted before storage and never shown again.</p>
-      <div id="cred-status" class="list"></div>
-      <div class="divider"></div>
-      <label>Provider</label>
-      <select id="cred-provider">${options}</select>
-      <p class="hint" id="cred-hint"></p>
-      <label>API key</label>
-      <input id="cred-key" type="password" placeholder="Paste your API key" autocomplete="off" />
-      <div class="actions">
-        <button class="btn-primary" id="cred-save">Save key</button>
-        <button class="btn-ghost" id="cred-test">Test connection</button>
+  const back = el(`<button class="btn-ghost btn-back">← All servers</button>`);
+  back.onclick = () => {
+    state = { orgId: null };
+    render();
+  };
+  app.append(back);
+
+  const header = el(`
+    <section class="card server-header">
+      ${serverAvatar(
+        { id: state.guildId, name: state.guildName || "Server", icon: state.guildIcon },
+        46,
+      )}
+      <div class="server-header-text">
+        <h2>${state.guildName ? escapeHtml(state.guildName) : "Your server"}</h2>
+        <p class="hint">Manage the AIs and projects for this server. Changes save automatically.</p>
       </div>
     </section>
   `);
-  app.append(card);
+  app.append(header);
 
-  const providerSel = card.querySelector("#cred-provider");
+  const loadingCard = el(`<section class="card"><p class="muted">Loading setup…</p></section>`);
+  app.append(loadingCard);
+
+  let credentials = [];
+  let projects = [];
+  try {
+    const [credRes, projRes] = await Promise.all([
+      api(`/api/credentials?orgId=${state.orgId}`),
+      api(`/api/projects?orgId=${state.orgId}`),
+    ]);
+    credentials = credRes.providers || [];
+    projects = projRes.projects || [];
+  } catch (error) {
+    loadingCard.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
+    return;
+  }
+  loadingCard.remove();
+
+  const progress = {
+    connected: credentials.length > 0,
+    projects: projects.length > 0,
+  };
+  const allDone = progress.connected && progress.projects;
+
+  // The overview (lists + Add buttons) is the landing screen for a server. The
+  // Connect AI / Create project / Ready wizard is entered via the Add buttons.
+  if (orgView.orgId !== state.orgId) {
+    orgView = {
+      orgId: state.orgId,
+      view: "overview",
+      step: 1,
+      editProjectName: null,
+      openForm: false,
+    };
+  }
+
+  const enterWizard = (step, editName = null) => {
+    orgView.view = "wizard";
+    orgView.step = step;
+    orgView.editProjectName = editName;
+    // Coming from an Add/Edit action, open the input form directly.
+    orgView.openForm = true;
+    renderOrg();
+  };
+
+  if (orgView.view === "overview") {
+    renderOrgOverview({ credentials, projects, allDone, enterWizard });
+    return;
+  }
+
+  // ----- Wizard view -----
+  const backOverview = el(
+    `<button class="btn-ghost btn-back">← Back to setup overview</button>`,
+  );
+  backOverview.onclick = () => {
+    orgView.view = "overview";
+    renderOrg();
+  };
+  app.append(backOverview);
+
+  const steps = [
+    { n: 1, label: "Connect AI", done: progress.connected },
+    { n: 2, label: "Create a project", done: progress.projects },
+    { n: 3, label: "Ready to use", done: allDone },
+  ];
+  const stepLocked = (n) =>
+    (n === 2 && !progress.connected) || (n === 3 && !allDone);
+
+  const goTo = (step) => {
+    orgView.step = step;
+    orgView.editProjectName = null;
+    orgView.openForm = false;
+    renderOrg();
+  };
+
+  const nav = el(`<div class="wizard-nav"></div>`);
+  steps.forEach((s, index) => {
+    const locked = stepLocked(s.n);
+    const btn = el(`
+      <button class="wizard-step ${orgView.step === s.n ? "active" : ""} ${
+        s.done ? "done" : ""
+      }" ${locked ? "disabled" : ""}>
+        <span class="ws-badge">${s.done ? "✓" : s.n}</span>
+        <span class="ws-label">${s.label}</span>
+      </button>
+    `);
+    btn.onclick = () => {
+      if (!locked) goTo(s.n);
+    };
+    nav.append(btn);
+    if (index < steps.length - 1) nav.append(el(`<span class="wizard-sep"></span>`));
+  });
+  app.append(nav);
+
+  const body = el(`<div id="wizard-body"></div>`);
+  app.append(body);
+
+  if (orgView.step === 1) {
+    body.append(
+      renderCredentialsCard(credentials, () => goTo(2), orgView.openForm),
+    );
+  } else if (orgView.step === 2) {
+    body.append(
+      await renderProjectsCard(
+        projects,
+        () => goTo(3),
+        orgView.editProjectName,
+        orgView.openForm,
+      ),
+    );
+  } else {
+    body.append(renderReadyCard(projects, goTo));
+  }
+}
+
+/**
+ * The server "home" screen: lists connected AIs and projects, each with an
+ * Add button that jumps into the setup wizard.
+ */
+function renderOrgOverview({ credentials, projects, allDone, enterWizard }) {
+  const aiCard = el(`
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Connected AIs</h2>
+          <p class="hint">Providers with an API key saved for this server.</p>
+        </div>
+        <button class="btn-primary" id="ov-add-ai">+ Connect an AI</button>
+      </div>
+      <div class="list" id="ov-ai-list"></div>
+    </section>
+  `);
+  const aiList = aiCard.querySelector("#ov-ai-list");
+  if (credentials.length === 0) {
+    aiList.innerHTML = `<p class="muted">No AIs connected yet. Connect one to get started.</p>`;
+  } else {
+    for (const providerId of credentials) {
+      const providerName = displayNameFor(providerId);
+      const item = el(`
+        <div class="item">
+          <span>${escapeHtml(providerName)} <span class="pill ok">connected</span></span>
+        </div>
+      `);
+      const actions = el(`<div class="item-actions"></div>`);
+      const del = el(`<button class="btn-danger">Remove</button>`);
+      del.onclick = async () => {
+        if (
+          !confirm(
+            `Remove the ${providerName} API key? Projects using it will stop working until another key is added.`,
+          )
+        ) {
+          return;
+        }
+        del.disabled = true;
+        try {
+          await api(
+            `/api/credentials?orgId=${state.orgId}&providerId=${encodeURIComponent(providerId)}`,
+            { method: "DELETE" },
+          );
+          toast(`${providerName} key removed`);
+          renderOrg();
+        } catch (error) {
+          del.disabled = false;
+          toast(error.message, true);
+        }
+      };
+      actions.append(del);
+      item.append(actions);
+      aiList.append(item);
+    }
+  }
+  aiCard.querySelector("#ov-add-ai").onclick = () => enterWizard(1);
+  app.append(aiCard);
+
+  const projCard = el(`
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h2>Projects</h2>
+          <p class="hint">Each project connects an AI to the channels and roles allowed to use it.</p>
+        </div>
+        <button class="btn-primary" id="ov-add-proj">+ Add a project</button>
+      </div>
+      <div class="list" id="ov-proj-list"></div>
+    </section>
+  `);
+  const projList = projCard.querySelector("#ov-proj-list");
+  if (projects.length === 0) {
+    projList.innerHTML = `<p class="muted">No projects yet. Add one so members can use <code>/agent</code>.</p>`;
+  } else {
+    for (const project of projects) {
+      const scope = project.channelIds.length
+        ? `${project.channelIds.length} channel(s)`
+        : "whole server";
+      const target =
+        project.repoUrl ||
+        (project.providerOptions && project.providerOptions.model) ||
+        "";
+      const item = el(`
+        <div class="item">
+          <div>
+            <strong>${escapeHtml(project.displayName || project.name)}</strong>
+            <span class="pill">${escapeHtml(displayNameFor(project.provider))}</span>
+            <div class="meta">${escapeHtml(target)}${target ? " · " : ""}${scope}</div>
+          </div>
+        </div>
+      `);
+      const actions = el(`<div class="item-actions"></div>`);
+      const edit = el(`<button class="btn-ghost">Edit</button>`);
+      edit.onclick = () => enterWizard(2, project.name);
+      const del = el(`<button class="btn-danger">Remove</button>`);
+      del.onclick = async () => {
+        if (!confirm(`Remove project “${project.displayName || project.name}”?`)) return;
+        del.disabled = true;
+        try {
+          await api(
+            `/api/projects?orgId=${state.orgId}&name=${encodeURIComponent(project.name)}`,
+            { method: "DELETE" },
+          );
+          renderOrg();
+        } catch (error) {
+          del.disabled = false;
+          toast(error.message, true);
+        }
+      };
+      actions.append(edit, del);
+      item.append(actions);
+      projList.append(item);
+    }
+  }
+  projCard.querySelector("#ov-add-proj").onclick = () => {
+    if (credentials.length === 0) {
+      toast("Connect an AI first, then add a project.", true);
+      enterWizard(1);
+      return;
+    }
+    enterWizard(2, null);
+  };
+  app.append(projCard);
+
+  if (allDone) {
+    app.append(
+      el(`
+        <section class="card ready-card">
+          <div class="ready-badge">✓</div>
+          <h2>Relay is ready</h2>
+          <p class="hint">Your team can use Relay in Discord right now.</p>
+          <div class="ready-cmd"><span class="cm-slash">/agent</span> prompt: your question or task</div>
+          <p class="hint">Need help? See the <a href="/guide.html">setup guide</a>.</p>
+        </section>
+      `),
+    );
+  }
+}
+
+function renderHelpCard() {
+  return el(`
+    <section class="card help-card">
+      <h2>Help &amp; resources</h2>
+      <p class="hint">Guides and answers to the most common setup questions.</p>
+      <div class="help-grid">
+        <a class="help-tile" href="/guide.html">
+          <span class="help-ic">📖</span>
+          <span class="help-tile-text"><strong>Setup guide</strong><span>Full step-by-step walkthrough</span></span>
+        </a>
+        <a class="help-tile" href="https://github.com/D-AZ0617/Discord-AI-Bot" target="_blank" rel="noopener">
+          <span class="help-ic">🐙</span>
+          <span class="help-tile-text"><strong>GitHub</strong><span>Source, issues &amp; updates</span></span>
+        </a>
+        <a class="help-tile" href="https://github.com/D-AZ0617/Discord-AI-Bot/issues/new" target="_blank" rel="noopener">
+          <span class="help-ic">💬</span>
+          <span class="help-tile-text"><strong>Report an issue</strong><span>Something not working?</span></span>
+        </a>
+      </div>
+      <div class="faq help-faq">
+        <details class="faq-item">
+          <summary>What's the difference between a chat project and a coding project?</summary>
+          <div class="faq-body">A <strong>chat</strong> project (ChatGPT, Gemini, Claude, or OpenRouter) answers questions right in the channel — no repo needed. A <strong>coding</strong> project (Cursor) runs a cloud agent on a GitHub repo and can open a pull request. Add whichever you need, or both.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Can members pick a different AI without changing the channel default?</summary>
+          <div class="faq-body">Yes. Each channel has a default agent, but anyone with an allowed role for another agent can override it for a single prompt with <code>/agent-cursor</code>, <code>/agent-openrouter</code>, <code>/agent-chatgpt</code>, <code>/agent-claude</code>, or <code>/agent-gemini</code> (or the <code>project:</code> option). Everyone else keeps using the default until they choose otherwise.</div>
+        </details>
+        <details class="faq-item">
+          <summary>Roles or channels aren't showing when I create a project</summary>
+          <div class="faq-body">Relay reads them through its own bot account, so it must be added to the server. If you just installed it, reload this page. Servers where Relay isn't present show <strong>Add to Discord</strong> instead of <strong>Configure</strong>.</div>
+        </details>
+        <details class="faq-item">
+          <summary>The bot doesn't respond to <code>/agent</code></summary>
+          <div class="faq-body">Make sure you're in a channel the project is mapped to (or leave channels unchecked for the whole server), and that you have one of the project's allowed roles. Only permitted roles can use the bot.</div>
+        </details>
+        <details class="faq-item">
+          <summary><code>@everyone</code> doesn't work as an allowed role</summary>
+          <div class="faq-body">Discord never lists <code>@everyone</code> on members, so it can't be matched. Create a real role (e.g. <code>AI Access</code>), assign it to your team, and allow that role instead.</div>
+        </details>
+        <details class="faq-item">
+          <summary>OpenRouter says the rate limit or quota was reached</summary>
+          <div class="faq-body">Free models are rate-limited and can be busy. Set the project's model to <code>openrouter/free</code> so Relay routes to any available free model, or add credits on OpenRouter to raise the daily limit.</div>
+        </details>
+        <details class="faq-item">
+          <summary>My API key stopped working</summary>
+          <div class="faq-body">Re-add the key on the <strong>Connect AI</strong> step and use <strong>Test connection</strong> to confirm it. Keys are encrypted and never shown again, so replacing it is the way to rotate.</div>
+        </details>
+      </div>
+    </section>
+  `);
+}
+
+function renderCredentialsCard(initialConfigured, onFirstAdded, openForm = false) {
+  const providers = providerList();
+
+  // Coding agents we intend to support but haven't wired up yet. Shown as
+  // disabled "coming soon" tiles so the category feels complete.
+  const comingSoon = {
+    coding: [
+      { id: "codex", displayName: "Codex" },
+      { id: "claude-code", displayName: "Claude Code" },
+    ],
+    chat: [],
+  };
+  const categories = {
+    chat: {
+      label: "💬 Generic AI Chatbot",
+      desc: "Answers questions and chats right in your channels — no repo required.",
+    },
+    coding: {
+      label: "⚡ Coding Agent",
+      desc: "Works on a GitHub repo and can open pull requests.",
+    },
+  };
+  const categoryOf = (p) => (p.kind === "repo" ? "coding" : "chat");
+  const providersIn = (cat) => providers.filter((p) => categoryOf(p) === cat);
+
+  const card = el(`
+    <section class="card">
+      <div class="step-head">
+        <span class="step-index">Step 1</span>
+        <h2>Connect an AI provider</h2>
+      </div>
+      <p class="hint">Bring your own key for the AI you want to use. Keys are encrypted before storage and never shown again.</p>
+      <div id="cred-status" class="list"></div>
+      <div class="add-row">
+        <button class="btn-primary" id="cred-add" hidden>+ Connect another AI</button>
+      </div>
+
+      <div id="cred-form">
+        <div class="divider"></div>
+        <p class="picker-q">Which would you like to add?</p>
+        <div class="segmented" id="cat-toggle">
+          <button type="button" class="seg" data-cat="chat">${categories.chat.label}</button>
+          <button type="button" class="seg" data-cat="coding">${categories.coding.label}</button>
+        </div>
+        <p class="hint" id="cat-desc"></p>
+
+        <label>Choose an AI</label>
+        <div class="provider-tiles" id="provider-tiles"></div>
+
+        <p class="hint" id="cred-hint"></p>
+        <label>API key</label>
+        <input id="cred-key" type="password" placeholder="Paste your API key" autocomplete="off" />
+        <div class="actions">
+          <button class="btn-primary" id="cred-save">Save key</button>
+          <button class="btn-ghost" id="cred-test">Test connection</button>
+          <button class="btn-ghost" id="cred-cancel" hidden>Cancel</button>
+        </div>
+      </div>
+      <div class="wizard-actions" id="cred-next-row" hidden>
+        <button class="btn-primary" id="cred-next">Continue to projects →</button>
+      </div>
+    </section>
+  `);
+
+  const catToggle = card.querySelector("#cat-toggle");
+  const catDesc = card.querySelector("#cat-desc");
+  const tilesEl = card.querySelector("#provider-tiles");
   const hintEl = card.querySelector("#cred-hint");
+  const nextRow = card.querySelector("#cred-next-row");
+  const statusEl = card.querySelector("#cred-status");
+  const addBtn = card.querySelector("#cred-add");
+  const formEl = card.querySelector("#cred-form");
+  const cancelBtn = card.querySelector("#cred-cancel");
+  let hadAny = initialConfigured.length > 0;
+  // Show the picker straight away for a fresh server or when opened via an Add
+  // action; once something is connected, collapse it behind the button.
+  let formOpen = !hadAny || openForm;
+
+  const applyFormState = () => {
+    formEl.hidden = !formOpen;
+    addBtn.hidden = formOpen || !hadAny;
+    cancelBtn.hidden = !hadAny;
+    nextRow.hidden = !hadAny;
+  };
+
+  // Default to the chatbot category when it has providers (the easiest start),
+  // otherwise fall back to whichever category does.
+  let activeCat = providersIn("chat").length ? "chat" : "coding";
+  let selectedProviderId = providersIn(activeCat)[0]?.id || null;
+
   const updateHint = () => {
-    const p = providerById(providerSel.value);
+    const p = providerById(selectedProviderId);
     hintEl.innerHTML = p?.apiKeyHint
       ? `Get your key from <strong>${escapeHtml(p.apiKeyHint)}</strong>.`
       : "";
   };
-  providerSel.onchange = updateHint;
-  updateHint();
+
+  const renderTiles = () => {
+    catDesc.textContent = categories[activeCat].desc;
+    catToggle.querySelectorAll(".seg").forEach((b) => {
+      b.classList.toggle("active", b.dataset.cat === activeCat);
+    });
+    tilesEl.innerHTML = "";
+    const live = providersIn(activeCat);
+    for (const p of live) {
+      const tile = el(`
+        <button type="button" class="provider-tile ${
+          selectedProviderId === p.id ? "selected" : ""
+        }" data-provider="${escapeHtml(p.id)}">
+          <span class="pt-name">${escapeHtml(p.displayName)}</span>
+        </button>
+      `);
+      tile.onclick = () => {
+        selectedProviderId = p.id;
+        renderTiles();
+        updateHint();
+      };
+      tilesEl.append(tile);
+    }
+    for (const soon of comingSoon[activeCat]) {
+      tilesEl.append(
+        el(`
+        <button type="button" class="provider-tile is-soon" disabled>
+          <span class="pt-name">${escapeHtml(soon.displayName)}</span>
+          <span class="pt-soon">Coming soon</span>
+        </button>
+      `),
+      );
+    }
+    if (!live.length) {
+      tilesEl.append(
+        el(
+          `<p class="muted" style="margin:0">Nothing available in this category yet.</p>`,
+        ),
+      );
+    }
+  };
+
+  catToggle.querySelectorAll(".seg").forEach((b) => {
+    b.onclick = () => {
+      activeCat = b.dataset.cat;
+      const inCat = providersIn(activeCat);
+      if (!inCat.some((p) => p.id === selectedProviderId)) {
+        selectedProviderId = inCat[0]?.id || null;
+      }
+      renderTiles();
+      updateHint();
+    };
+  });
+
+  const renderList = (configured) => {
+    hadAny = configured.length > 0;
+    if (!hadAny) formOpen = true;
+    applyFormState();
+    statusEl.innerHTML = configured.length
+      ? configured
+          .map(
+            (p) =>
+              `<div class="item">
+                <span>${escapeHtml(displayNameFor(p))} <span class="pill ok">connected</span></span>
+                <button class="btn-danger cred-delete" data-provider="${escapeHtml(p)}">Remove</button>
+              </div>`,
+          )
+          .join("")
+      : `<p class="muted">No providers connected yet. Add one below to get started.</p>`;
+    statusEl.querySelectorAll(".cred-delete").forEach((button) => {
+      button.onclick = async () => {
+        const providerId = button.dataset.provider;
+        const providerName = displayNameFor(providerId);
+        if (
+          !confirm(
+            `Remove the ${providerName} API key? Projects using it will stop working until another key is added.`,
+          )
+        ) {
+          return;
+        }
+        button.disabled = true;
+        try {
+          await api(
+            `/api/credentials?orgId=${state.orgId}&providerId=${encodeURIComponent(providerId)}`,
+            { method: "DELETE" },
+          );
+          toast(`${providerName} key removed`);
+          refresh();
+        } catch (error) {
+          button.disabled = false;
+          toast(error.message, true);
+        }
+      };
+    });
+  };
 
   const refresh = async () => {
-    const statusEl = card.querySelector("#cred-status");
     try {
       const { providers: configured } = await api(`/api/credentials?orgId=${state.orgId}`);
-      statusEl.innerHTML = configured.length
-        ? configured
-            .map(
-              (p) =>
-                `<div class="item">
-                  <span>${escapeHtml(displayNameFor(p))} <span class="pill ok">configured</span></span>
-                  <button class="btn-danger cred-delete" data-provider="${escapeHtml(p)}">Remove key</button>
-                </div>`,
-            )
-            .join("")
-        : `<p class="muted">No provider keys yet. Add one below to get started.</p>`;
-      statusEl.querySelectorAll(".cred-delete").forEach((button) => {
-        button.onclick = async () => {
-          const providerId = button.dataset.provider;
-          const providerName = displayNameFor(providerId);
-          if (
-            !confirm(
-              `Remove the ${providerName} API key? Projects using it will stop working until another key is added.`,
-            )
-          ) {
-            return;
-          }
-          button.disabled = true;
-          try {
-            await api(
-              `/api/credentials?orgId=${state.orgId}&providerId=${encodeURIComponent(providerId)}`,
-              { method: "DELETE" },
-            );
-            toast(`${providerName} key removed`);
-            refresh();
-          } catch (error) {
-            button.disabled = false;
-            toast(error.message, true);
-          }
-        };
-      });
+      renderList(configured);
     } catch (error) {
       statusEl.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
     }
   };
 
+  addBtn.onclick = () => {
+    formOpen = true;
+    applyFormState();
+    card.querySelector("#cred-key").focus({ preventScroll: true });
+    formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+  cancelBtn.onclick = () => {
+    card.querySelector("#cred-key").value = "";
+    formOpen = false;
+    applyFormState();
+  };
+
+  card.querySelector("#cred-next").onclick = () => {
+    if (selectedProviderId) pendingProjectProvider = selectedProviderId;
+    if (onFirstAdded) onFirstAdded();
+  };
+
   card.querySelector("#cred-save").onclick = async () => {
-    const providerId = providerSel.value;
-    const apiKey = card.querySelector("#cred-key").value.trim();
+    const providerId = selectedProviderId;
+    if (!providerId) return toast("Choose an AI first", true);
+    const keyEl = card.querySelector("#cred-key");
+    const apiKey = keyEl.value.trim();
     if (!apiKey) return toast("Enter an API key", true);
+    const wasEmpty = !hadAny;
     try {
       await api("/api/credentials", {
         method: "POST",
         body: JSON.stringify({ orgId: state.orgId, providerId, apiKey }),
       });
-      card.querySelector("#cred-key").value = "";
+      keyEl.value = "";
+      // Remember the choice so the project form opens on the matching fields.
+      pendingProjectProvider = providerId;
       toast("Key saved");
-      refresh();
+      // Collapse back to the list after adding; refresh() reopens if now empty.
+      formOpen = false;
+      await refresh();
+      // Guide first-time admins straight into creating their first project.
+      if (wasEmpty && hadAny && onFirstAdded) onFirstAdded();
     } catch (error) {
       toast(error.message, true);
     }
   };
 
   card.querySelector("#cred-test").onclick = async () => {
-    const providerId = providerSel.value;
+    const providerId = selectedProviderId;
+    if (!providerId) return toast("Choose an AI first", true);
     try {
       const result = await api("/api/credentials/test", {
         method: "POST",
@@ -647,10 +1221,13 @@ async function renderCredentials() {
     }
   };
 
-  await refresh();
+  renderTiles();
+  updateHint();
+  renderList(initialConfigured);
+  return card;
 }
 
-async function renderProjects() {
+async function renderProjectsCard(initialProjects, onFirstAdded, editName, openForm = false) {
   // Load the server's real roles/channels so admins pick from dropdowns instead
   // of pasting IDs. Falls back to manual ID entry if the lookup fails.
   let meta = null;
@@ -702,24 +1279,31 @@ async function renderProjects() {
 
   const card = el(`
     <section class="card">
-      <h2>Projects</h2>
-      <p class="hint">Connect a repo (for Cursor cloud agents) or a chat model to a channel and roles. Add as many as you like.</p>
+      <div class="step-head">
+        <span class="step-index">Step 2</span>
+        <h2>Create a project</h2>
+      </div>
+      <p class="hint">A project connects an AI (repo agent or chat model) to the channels and roles allowed to use it. Add as many as you like.</p>
       ${
         metaWarnings.length
           ? `<div class="callout warn">${metaWarnings.map(escapeHtml).join("<br>")}</div>`
           : ""
       }
       <div id="project-list" class="list"></div>
+      <div class="add-row">
+        <button class="btn-primary" id="p-add" hidden>+ Add a project</button>
+      </div>
+      <div id="p-form">
       <div class="divider"></div>
-      <h3 id="p-form-title" style="margin:0 0 4px">Add a project</h3>
-      <label>Project name</label>
+      <h3 id="p-form-title" class="form-subtitle">Add a project</h3>
+      <label>Project name <span class="req">*</span></label>
       <input id="p-display" placeholder="Website Assistant" />
       <p class="hint">This is the name people will see in Discord.</p>
       <label>Provider</label>
       <select id="p-provider">${providerOptions}</select>
 
       <div id="p-repo-fields">
-        <label>GitHub repo URL</label>
+        <label>GitHub repo URL <span class="req">*</span></label>
         <input id="p-repo" placeholder="https://github.com/owner/repo" />
         <div class="row">
           <div><label>Default branch (optional)</label><input id="p-branch" placeholder="main" /></div>
@@ -730,22 +1314,25 @@ async function renderProjects() {
       <div id="p-chat-fields" hidden>
         <label>Suggested model</label>
         <select id="p-model-picker"></select>
-        <label>Model ID</label>
+        <label>Model ID <span class="req">*</span></label>
         <input id="p-model" placeholder="model name" />
         <p class="hint" id="p-model-hint">Choose a suggestion above or type any model ID the provider supports.</p>
       </div>
 
       <label>Channels</label>
       ${channelControl}
-      <label>Allowed roles</label>
+      <label>Allowed roles <span class="req">*</span></label>
       ${roleControl}
       <div class="actions">
         <button class="btn-primary" id="p-save">Add project</button>
-        <button class="btn-ghost" id="p-cancel" hidden>Cancel edit</button>
+        <button class="btn-ghost" id="p-cancel" hidden>Cancel</button>
+      </div>
+      </div>
+      <div class="wizard-actions" id="p-next-row" hidden>
+        <button class="btn-primary" id="p-next">Finish setup →</button>
       </div>
     </section>
   `);
-  app.append(card);
 
   const listEl = card.querySelector("#project-list");
   const saveBtn = card.querySelector("#p-save");
@@ -757,9 +1344,23 @@ async function renderProjects() {
   const chatFields = card.querySelector("#p-chat-fields");
   const modelEl = card.querySelector("#p-model");
   const modelPickerEl = card.querySelector("#p-model-picker");
-  let projectsCache = [];
+  const nextRow = card.querySelector("#p-next-row");
+  const addBtn = card.querySelector("#p-add");
+  const formEl = card.querySelector("#p-form");
+  let projectsCache = initialProjects || [];
   let editingName = null;
   let projectNameCustomized = false;
+  // Collapse the form behind an "Add a project" button once projects exist,
+  // unless opened via an Add/Edit action.
+  let formOpen = projectsCache.length === 0 || openForm;
+
+  const applyFormState = () => {
+    formEl.hidden = !formOpen;
+    addBtn.hidden = formOpen || projectsCache.length === 0;
+    nextRow.hidden = projectsCache.length === 0;
+    // Cancel is only meaningful when there's a list to collapse back to.
+    cancelBtn.hidden = !(formOpen && projectsCache.length > 0);
+  };
 
   const currentKind = () => providerById(providerSel.value)?.kind || "repo";
   const useProviderAsProjectName = () => {
@@ -823,7 +1424,12 @@ async function renderProjects() {
     projectNameCustomized = false;
     card.querySelector("#p-repo").value = "";
     card.querySelector("#p-branch").value = "";
-    providerSel.value = providers[0]?.id || "cursor";
+    const preferred =
+      pendingProjectProvider &&
+      providers.some((p) => p.id === pendingProjectProvider)
+        ? pendingProjectProvider
+        : providers[0]?.id || "cursor";
+    providerSel.value = preferred;
     useProviderAsProjectName();
     card.querySelector("#p-pr").checked = true;
     modelEl.value = "";
@@ -850,87 +1456,143 @@ async function renderProjects() {
     titleEl.textContent = `Edit “${project.displayName || project.name}”`;
     saveBtn.textContent = "Update project";
     cancelBtn.hidden = false;
-    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    formOpen = true;
+    applyFormState();
+    formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 
-  cancelBtn.onclick = resetForm;
+  addBtn.onclick = () => {
+    resetForm();
+    formOpen = true;
+    applyFormState();
+    displayNameEl.focus({ preventScroll: true });
+    formEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  };
+
+  cancelBtn.onclick = () => {
+    resetForm();
+    if (projectsCache.length > 0) formOpen = false;
+    applyFormState();
+  };
+
+  const renderList = (projects) => {
+    projectsCache = projects;
+    if (projects.length === 0) formOpen = true;
+    applyFormState();
+    if (!editingName && !projectNameCustomized) useProviderAsProjectName();
+    listEl.innerHTML = "";
+    if (projects.length === 0) {
+      listEl.innerHTML = `<p class="muted">No projects yet.</p>`;
+      return;
+    }
+    for (const project of projects) {
+      const scope = project.channelIds.length
+        ? `${project.channelIds.length} channel(s)`
+        : "whole server";
+      const target =
+        project.repoUrl ||
+        (project.providerOptions && project.providerOptions.model) ||
+        "";
+      const item = el(`
+        <div class="item">
+          <div>
+            <strong>${escapeHtml(project.displayName || project.name)}</strong>
+            <span class="pill">${escapeHtml(displayNameFor(project.provider))}</span>
+            <div class="meta">${escapeHtml(target)}${target ? " · " : ""}${scope}</div>
+          </div>
+        </div>
+      `);
+      const actions = el(`<div class="item-actions"></div>`);
+      const edit = el(`<button class="btn-ghost">Edit</button>`);
+      edit.onclick = () => loadForEdit(project);
+      const del = el(`<button class="btn-danger">Remove</button>`);
+      del.onclick = async () => {
+        if (!confirm(`Remove project “${project.displayName || project.name}”?`)) return;
+        try {
+          await api(
+            `/api/projects?orgId=${state.orgId}&name=${encodeURIComponent(project.name)}`,
+            { method: "DELETE" },
+          );
+          if (editingName === project.name) resetForm();
+          refresh();
+        } catch (error) {
+          toast(error.message, true);
+        }
+      };
+      actions.append(edit, del);
+      item.append(actions);
+      listEl.append(item);
+    }
+  };
 
   const refresh = async () => {
     try {
       const { projects } = await api(`/api/projects?orgId=${state.orgId}`);
-      projectsCache = projects;
-      if (!editingName && !projectNameCustomized) useProviderAsProjectName();
-      listEl.innerHTML = "";
-      if (projects.length === 0) {
-        listEl.innerHTML = `<p class="muted">No projects yet.</p>`;
-        return;
-      }
-      for (const project of projects) {
-        const scope = project.channelIds.length ? `${project.channelIds.length} channel(s)` : "whole server";
-        const target =
-          project.repoUrl ||
-          (project.providerOptions && project.providerOptions.model) ||
-          "";
-        const item = el(`
-          <div class="item">
-            <div>
-              <strong>${escapeHtml(project.displayName || project.name)}</strong>
-              <span class="pill">${escapeHtml(displayNameFor(project.provider))}</span>
-              <div class="meta">${escapeHtml(target)}${target ? " · " : ""}${scope}</div>
-            </div>
-          </div>
-        `);
-        const actions = el(`<div class="item-actions"></div>`);
-        const edit = el(`<button class="btn-ghost">Edit</button>`);
-        edit.onclick = () => loadForEdit(project);
-        const del = el(`<button class="btn-danger">Remove</button>`);
-        del.onclick = async () => {
-          if (!confirm(`Remove project “${project.displayName || project.name}”?`)) return;
-          try {
-            await api(`/api/projects?orgId=${state.orgId}&name=${encodeURIComponent(project.name)}`, {
-              method: "DELETE",
-            });
-            if (editingName === project.name) resetForm();
-            refresh();
-          } catch (error) {
-            toast(error.message, true);
-          }
-        };
-        actions.append(edit, del);
-        item.append(actions);
-        listEl.append(item);
-      }
+      renderList(projects);
     } catch (error) {
       listEl.innerHTML = `<p class="muted">${escapeHtml(error.message)}</p>`;
     }
+  };
+
+  card.querySelector("#p-next").onclick = () => onFirstAdded && onFirstAdded();
+
+  const focusField = (id) => {
+    const control = card.querySelector(`#${id}`);
+    if (!control) return;
+    control.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (typeof control.focus === "function") control.focus({ preventScroll: true });
   };
 
   saveBtn.onclick = async () => {
     const enteredDisplayName = displayNameEl.value.trim();
     if (!enteredDisplayName) {
       toast("Enter a project name.", true);
+      focusField("p-display");
       return;
     }
+    const isChat = currentKind() === "chat";
+    const repoUrl = isChat ? "" : card.querySelector("#p-repo").value.trim();
+    const model = isChat ? modelEl.value.trim() : "";
+    const allowedRoleIds = getIds("p-roles");
+
+    // Enforce required fields client-side so the admin can't advance the wizard
+    // with an incomplete project (the backend also validates as a backstop).
+    if (!isChat && !repoUrl) {
+      toast("Enter the GitHub repo URL for this coding agent.", true);
+      focusField("p-repo");
+      return;
+    }
+    if (isChat && !model) {
+      toast("Choose or enter a model for this chatbot.", true);
+      focusField("p-model");
+      return;
+    }
+    if (allowedRoleIds.length === 0) {
+      toast("Select at least one allowed role.", true);
+      focusField("p-roles");
+      return;
+    }
+
     const displayName = editingName
       ? enteredDisplayName
       : uniqueProjectDisplayName(enteredDisplayName, projectsCache);
     const name =
       editingName ||
       projectSlug(displayName, new Set(projectsCache.map((project) => project.name)));
-    const isChat = currentKind() === "chat";
+    const wasEmpty = projectsCache.length === 0;
     const project = {
       name,
       displayName,
       guildId: state.guildId,
       provider: providerSel.value || "cursor",
       channelIds: getIds("p-channels"),
-      allowedRoleIds: getIds("p-roles"),
-      repoUrl: isChat ? "" : card.querySelector("#p-repo").value.trim(),
+      allowedRoleIds,
+      repoUrl,
       defaultBranch: isChat
         ? undefined
         : card.querySelector("#p-branch").value.trim() || undefined,
       autoCreatePR: isChat ? false : card.querySelector("#p-pr").checked,
-      providerOptions: isChat ? { model: modelEl.value.trim() } : {},
+      providerOptions: isChat ? { model } : {},
     };
 
     saveBtn.disabled = true;
@@ -939,9 +1601,14 @@ async function renderProjects() {
         method: "POST",
         body: JSON.stringify({ orgId: state.orgId, project }),
       });
-      toast(editingName ? "Project updated" : "Project added");
+      const wasEditing = Boolean(editingName);
+      toast(wasEditing ? "Project updated" : "Project added");
       resetForm();
-      refresh();
+      // Collapse back to the list after saving; refresh() reopens if now empty.
+      formOpen = false;
+      await refresh();
+      // First project created during onboarding advances to the ready step.
+      if (wasEmpty && !wasEditing && onFirstAdded) onFirstAdded();
     } catch (error) {
       toast(error.message, true);
     } finally {
@@ -949,8 +1616,44 @@ async function renderProjects() {
     }
   };
 
-  useProviderAsProjectName();
-  await refresh();
+  resetForm();
+  renderList(projectsCache);
+  // When opened via "Edit" from the overview, jump straight into that project.
+  if (editName) {
+    const target = projectsCache.find((p) => p.name === editName);
+    if (target) loadForEdit(target);
+  }
+  return card;
+}
+
+function renderReadyCard(projects, goTo) {
+  const list = projects
+    .map(
+      (p) =>
+        `<li><strong>${escapeHtml(p.displayName || p.name)}</strong><span class="pill">${escapeHtml(
+          displayNameFor(p.provider),
+        )}</span></li>`,
+    )
+    .join("");
+
+  const card = el(`
+    <section class="card ready-card">
+      <div class="ready-badge">✓</div>
+      <h2>Relay is ready</h2>
+      <p class="hint">Your team can start using Relay in Discord right now.</p>
+      <div class="ready-cmd"><span class="cm-slash">/agent</span> prompt: your question or task</div>
+      <h3 class="form-subtitle">Your projects</h3>
+      <ul class="ready-list">${list || `<li class="muted">No projects yet.</li>`}</ul>
+      <div class="wizard-actions">
+        <button class="btn-ghost" id="ready-conn">Manage connections</button>
+        <button class="btn-ghost" id="ready-proj">Manage projects</button>
+      </div>
+      <p class="hint">Need help? See the <a href="/guide.html">setup guide</a>.</p>
+    </section>
+  `);
+  card.querySelector("#ready-conn").onclick = () => goTo(1);
+  card.querySelector("#ready-proj").onclick = () => goTo(2);
+  return card;
 }
 
 function escapeHtml(value) {

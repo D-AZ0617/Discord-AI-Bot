@@ -21,17 +21,24 @@
       <section class="card">
         <h1>Setup Guide</h1>
         <p>
-          Add <strong>Relay</strong> to your Discord server and let your team run
-          Cursor cloud agents on your GitHub repos — or chat with ChatGPT, Gemini,
-          and Claude — using <code>/agent</code>. Setup is admin-only and one-time
-          (about 5 minutes). Regular members don't set up anything — they just type
-          <code>/agent</code>.
+          Add <strong>Relay</strong> to your Discord server and let your team use AI
+          with <code>/agent</code> — whatever they need it for. Setup is admin-only
+          and one-time (about 5 minutes). Regular members don't set up anything —
+          they just type <code>/agent</code>.
         </p>
         <div class="callout">
-          <strong>What this bot does:</strong> it runs
-          <a href="https://cursor.com" target="_blank" rel="noopener">Cursor Cloud Agents</a>
-          that clone a GitHub repo, work on it, and can open pull requests — all
-          from Discord. So you'll connect a Cursor API key and at least one repo.
+          <strong>What this bot does:</strong> Relay brings AI into Discord in two
+          ways, and you can use either or both.
+          <ul>
+            <li><strong>Chat</strong> — ask questions and get answers from ChatGPT,
+              Gemini, Claude, or OpenRouter (including free models) right in the
+              channel. No repo or code involved.</li>
+            <li><strong>Code</strong> — hand a task to a
+              <a href="https://cursor.com" target="_blank" rel="noopener">Cursor cloud agent</a>
+              that clones a GitHub repo, works on it, and can open a pull request.</li>
+          </ul>
+          You only set up the parts you want. A chat-only server never needs a repo
+          or a Cursor key; a coding server does.
         </div>
       </section>
 
@@ -41,11 +48,13 @@
           <li><strong>Manage Server</strong> permission on your Discord server.</li>
           <li>An API key for at least one AI provider (bring your own):
             <ul>
-              <li><strong>Cursor</strong> for cloud agents that work on a repo and open PRs — needs a
-                <a href="https://cursor.com" target="_blank" rel="noopener">Cursor</a> API key and a GitHub repo connected to Cursor.</li>
-              <li><strong>OpenAI (ChatGPT)</strong>, <strong>Google Gemini</strong>,
-                <strong>Anthropic (Claude)</strong>, or <strong>OpenRouter</strong>
-                (many free models) for chat answers in Discord — no repo required.</li>
+              <li><strong>For chatting:</strong> <strong>OpenAI (ChatGPT)</strong>,
+                <strong>Google Gemini</strong>, <strong>Anthropic (Claude)</strong>,
+                or <strong>OpenRouter</strong> (many free models) — no repo required.
+                OpenRouter is the quickest, cheapest way to start.</li>
+              <li><strong>For coding:</strong> <strong>Cursor</strong> cloud agents —
+                needs a <a href="https://cursor.com" target="_blank" rel="noopener">Cursor</a>
+                API key and a GitHub repo connected to Cursor.</li>
             </ul>
           </li>
         </ul>
@@ -59,7 +68,8 @@
           <li>Servers where Relay is already installed show <strong>Configure</strong> instead.</li>
         </ul>
 
-        <h2>Step 2 — Connect Cursor to GitHub (once)</h2>
+        <h2>Step 2 — Connect Cursor to GitHub (coding only, once)</h2>
+        <div class="callout">Only setting up chat (ChatGPT, Gemini, Claude, OpenRouter)? Skip this step and go straight to Step 3.</div>
         <p>Cursor's cloud agent needs access to your repo to clone it and open PRs.</p>
         <ul>
           <li>Go to <a href="https://cursor.com/dashboard" target="_blank" rel="noopener">cursor.com/dashboard</a> → <strong>Integrations → GitHub</strong>.</li>
@@ -67,27 +77,33 @@
           <li>Grant access to the repo(s) you'll use (or "All repositories").</li>
         </ul>
 
-        <h2>Step 3 — Add an AI provider key</h2>
-        <p>On the dashboard, select your server, then under <strong>AI provider keys</strong>
-          choose a provider, paste your key, click <strong>Save key</strong>, then
-          <strong>Test connection</strong> (should say <strong>Connection OK</strong>).
-          Add a key for each AI you want to use.</p>
+        <h2>Step 3 — Connect an AI provider</h2>
+        <p>Opening a server starts a guided setup with three steps:
+          <strong>Connect AI</strong>, <strong>Create a project</strong>, and
+          <strong>Ready to use</strong>. On the first step, first choose what you're
+          adding — <strong>Generic AI Chatbot</strong> or <strong>Coding Agent</strong> —
+          then pick the specific AI, paste your key, click <strong>Save key</strong>
+          (optionally <strong>Test connection</strong> → <strong>Connection OK</strong>),
+          and Relay moves you to the next step automatically. Add a key for each AI
+          you want to use.</p>
         <table>
-          <tr><th>Provider</th><th>Where to get the key</th></tr>
-          <tr><td>Cursor Cloud Agents</td><td>cursor.com/dashboard → Settings → API Keys (starts with <code>key_</code>)</td></tr>
-          <tr><td>OpenAI (ChatGPT)</td><td>platform.openai.com → API keys</td></tr>
-          <tr><td>Google Gemini</td><td>aistudio.google.com → Get API key</td></tr>
-          <tr><td>Anthropic (Claude)</td><td>console.anthropic.com → API keys</td></tr>
-          <tr><td>OpenRouter (free models)</td><td>openrouter.ai → Keys</td></tr>
+          <tr><th>Provider</th><th>Use</th><th>Where to get the key</th></tr>
+          <tr><td>OpenRouter (free models)</td><td>Chat</td><td>openrouter.ai → Keys</td></tr>
+          <tr><td>OpenAI (ChatGPT)</td><td>Chat</td><td>platform.openai.com → API keys</td></tr>
+          <tr><td>Google Gemini</td><td>Chat</td><td>aistudio.google.com → Get API key</td></tr>
+          <tr><td>Anthropic (Claude)</td><td>Chat</td><td>console.anthropic.com → API keys</td></tr>
+          <tr><td>Cursor Cloud Agents</td><td>Coding</td><td>cursor.com/dashboard → Settings → API Keys (starts with <code>key_</code>)</td></tr>
         </table>
         <div class="callout">Your key is encrypted before storage and never displayed again.</div>
       </section>
 
       <section class="card">
         <h2>Step 4 — Create a project</h2>
-        <p>A "project" maps an AI (and who can use it) to your server. Pick a
-          <strong>Provider</strong> first — the form then shows the right fields.
-          Add as many projects as you like.</p>
+        <p>On the second step of the guided setup, create a project — this maps an
+          AI (and who can use it) to your server. Pick a <strong>Provider</strong>
+          first; the form then shows the right fields. Add as many projects as you
+          like, then finish to reach the <strong>Ready to use</strong> step. You can
+          revisit any step later to manage connections and projects.</p>
         <table>
           <tr><th>Field</th><th>What to enter</th></tr>
           <tr><td>Project name</td><td>defaults to the selected AI provider's name. You can replace it with any friendly label; Relay creates the internal project ID automatically.</td></tr>
@@ -113,10 +129,12 @@
           members, and use that role's ID.
         </div>
 
-        <h3>Multiple repos</h3>
-        <p>Create one project per repo. Members choose which repo by:</p>
+        <h3>Multiple projects</h3>
+        <p>Add as many projects as you like — for example a chat model in one
+          channel and a Cursor coding agent in another, or several repos. Members
+          choose which project by:</p>
         <ul>
-          <li><strong>Channel:</strong> map each repo to its own channel(s), or</li>
+          <li><strong>Channel:</strong> map each project to its own channel(s), or</li>
           <li><strong>Command option:</strong> leave channels blank and pass
             <code>project:</code> (with autocomplete), e.g.
             <code>/agent prompt: ... project: api</code>.</li>
@@ -125,10 +143,12 @@
 
       <section class="card">
         <h2>Step 5 — Use it</h2>
-        <p>In a mapped channel (with your allowed role):</p>
-        <p><code>/agent prompt: summarize what this repository does</code></p>
-        <p>You'll see a <strong>Started</strong> embed that updates to
-          <strong>Running</strong> → <strong>Finished</strong>.</p>
+        <p>In a mapped channel (with your allowed role), just type <code>/agent</code>:</p>
+        <p><strong>Chat:</strong> <code>/agent prompt: what are good ways to structure a REST API?</code></p>
+        <p><strong>Coding:</strong> <code>/agent prompt: summarize what this repository does</code></p>
+        <p>For coding runs you'll see a <strong>Started</strong> embed that updates to
+          <strong>Running</strong> → <strong>Finished</strong>; chat replies come back
+          in the channel.</p>
         <table>
           <tr><th>Command</th><th>What it does</th></tr>
           <tr><td><code>/agent prompt:&lt;text&gt; [project:&lt;slug&gt;]</code></td><td>Start, or continue this channel's agent</td></tr>
@@ -138,6 +158,29 @@
           <tr><td><code>/agent-projects</code></td><td>Projects you can access</td></tr>
         </table>
         <p><code>/cursor*</code> are aliases for the same commands.</p>
+
+        <h3>Switch AI for a single prompt</h3>
+        <p>Each channel has a default agent (the project mapped to it, or the
+          server-wide one). Anyone can override it <strong>for one prompt</strong>
+          — as long as they have an allowed role for that agent — without changing
+          the default for everyone else. Two ways:</p>
+        <ul>
+          <li><strong>Per-AI commands:</strong> <code>/agent-cursor</code>,
+            <code>/agent-openrouter</code>, <code>/agent-chatgpt</code>,
+            <code>/agent-claude</code>, <code>/agent-gemini</code> — each runs your
+            prompt with that AI's project.</li>
+          <li><strong>The <code>project:</code> option:</strong> on any
+            <code>/agent</code> command, e.g.
+            <code>/agent prompt: … project: relay</code> (autocomplete lists the
+            projects you can use).</li>
+        </ul>
+        <div class="callout">
+          Example: a channel defaults to OpenRouter for chat. A developer with the
+          Cursor role types <code>/agent-cursor prompt: fix the failing test</code>
+          to run that one prompt on the repo. Everyone else keeps chatting with
+          OpenRouter. If you have more than one project on the same AI, add
+          <code>project:</code> to pick which one.
+        </div>
       </section>
 
       <section class="card">
