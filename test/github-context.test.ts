@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   filterTreePaths,
+  formatCommitsForPrompt,
+  mergePathPicks,
   parseGitHubRepoUrl,
   pickPathsFromModelReply,
+  suggestPathsForQuestion,
 } from "../src/codebase/github-context.js";
 
 describe("parseGitHubRepoUrl", () => {
@@ -45,6 +48,57 @@ describe("filterTreePaths", () => {
     expect(paths).not.toContain("node_modules/foo/index.js");
     expect(paths).not.toContain("dist/bundle.js");
     expect(paths).not.toContain("binary.png");
+  });
+});
+
+describe("formatCommitsForPrompt", () => {
+  it("formats commit lines", () => {
+    const text = formatCommitsForPrompt([
+      {
+        sha: "abc1234",
+        date: "2026-01-01T00:00:00Z",
+        author: "Ada",
+        message: "Fix bug",
+      },
+    ]);
+    expect(text).toContain("abc1234");
+    expect(text).toContain("Ada");
+    expect(text).toContain("Fix bug");
+  });
+});
+
+describe("suggestPathsForQuestion", () => {
+  const tree = [
+    "package.json",
+    "README.md",
+    "src/bot/handlers.ts",
+    "src/codebase/github-context.ts",
+    "docs/SETUP.md",
+  ];
+
+  it("prioritizes files mentioned in the prompt", () => {
+    const paths = suggestPathsForQuestion(
+      "How does handlers.ts route slash commands?",
+      tree,
+    );
+    expect(paths[0]).toBe("src/bot/handlers.ts");
+  });
+
+  it("includes anchors and docs for commit questions", () => {
+    const paths = suggestPathsForQuestion("summarize recent commits", tree);
+    expect(paths).toContain("src/codebase/github-context.ts");
+    expect(paths).toContain("README.md");
+  });
+});
+
+describe("mergePathPicks", () => {
+  it("dedupes while preserving order", () => {
+    expect(
+      mergePathPicks(
+        ["src/a.ts", "src/b.ts"],
+        ["src/b.ts", "src/c.ts"],
+      ),
+    ).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
   });
 });
 

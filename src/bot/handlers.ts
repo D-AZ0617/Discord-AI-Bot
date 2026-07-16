@@ -37,6 +37,7 @@ import {
   editChannelMessage,
   editOriginalInteractionResponse,
 } from "../discord/rest.js";
+import { codeChatCacheKey } from "../codebase/context-cache.js";
 import type { RunAgentParams } from "../workflows/run-agent.js";
 
 const BRAND_COLOR = 0x5865f2;
@@ -191,6 +192,15 @@ export class CommandRouter {
       username: callerUsername(interaction),
       applicationId: interaction.application_id,
       interactionToken: interaction.token,
+      ...(providerDef.kind === "code-chat"
+        ? {
+            contextCacheKey: codeChatCacheKey(
+              installation.orgId,
+              contextId,
+              project.name,
+            ),
+          }
+        : {}),
     };
 
     try {

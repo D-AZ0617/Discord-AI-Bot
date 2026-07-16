@@ -40,6 +40,8 @@ export interface CreateAgentInput {
   name?: string;
   autoCreatePR: boolean;
   providerOptions: Readonly<Record<string, unknown>>;
+  /** Reuse cached repo context for follow-ups in the same Discord channel. */
+  contextCacheKey?: string;
 }
 
 export interface AgentProviderCapabilities {

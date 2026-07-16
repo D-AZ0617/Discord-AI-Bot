@@ -46,6 +46,8 @@ export interface RunAgentParams {
   username: string;
   applicationId: string;
   interactionToken: string;
+  /** Cache key for OpenRouter codebase follow-ups in the same channel. */
+  contextCacheKey?: string;
 }
 
 function isRetryable(error: unknown): boolean {
@@ -102,6 +104,9 @@ export class RunAgentWorkflow extends WorkflowEntrypoint<Env, RunAgentParams> {
               name: `${params.project.displayName ?? params.project.name} · ${params.username}`,
               autoCreatePR: params.project.autoCreatePR,
               providerOptions: params.project.providerOptions,
+              ...(params.contextCacheKey
+                ? { contextCacheKey: params.contextCacheKey }
+                : {}),
             });
             return {
               run: created.run,

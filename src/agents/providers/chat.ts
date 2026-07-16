@@ -11,14 +11,25 @@ import type {
   CreatedAgent,
 } from "../types.js";
 import {
+  CODE_CHAT_COMMIT_REFRESH_MS,
+  readCodeChatCache,
+  snapshotFromCache,
+  writeCodeChatCache,
+} from "../../codebase/context-cache.js";
+import {
   CODE_CHAT_SYSTEM_PROMPT,
   FILE_PICK_SYSTEM_PROMPT,
+  fetchRecentCommitsDetailed,
   fetchSelectedFiles,
   formatFilesForPrompt,
   formatTreeForPrompt,
   GitHubContextError,
   loadRepoSnapshot,
+  mergeFetchedFiles,
+  mergePathPicks,
   pickPathsFromModelReply,
+  repoUrlForSnapshot,
+  suggestPathsForQuestion,
 } from "../../codebase/github-context.js";
 
 /**
@@ -171,7 +182,7 @@ const openrouterBackend = openAiCompatible({
 
 const openrouterCodeBackend = openAiCompatible({
   id: "openrouter-code",
-  displayName: "OpenRouter",
+  displayName: "OpenRouter (codebase)",
   baseUrl: "https://openrouter.ai/api/v1",
   defaultModel: "openrouter/free",
   suggestedModels: openrouterModels,
@@ -423,23 +434,74 @@ class CodeChatAgentProvider extends BaseChatProvider {
     }
 
     const model = this.modelFrom(input.providerOptions);
-    const snapshot = await loadRepoSnapshot(repoUrl, input.defaultBranch);
+    const cacheKey = input.contextCacheKey?.trim() || null;
+    const cached = cacheKey ? await readCodeChatCache(cacheKey) : null;
+
+    const snapshot =
+      cached?.repoUrl === repoUrl &&
+      (!input.defaultBranch?.trim() || cached.ref === input.defaultBranch.trim())
+        ? snapshotFromCache(cached)
+        : await loadRepoSnapshot(repoUrl, input.defaultBranch);
+
+    const useCachedCommits =
+      cached &&
+      cached.repoUrl === repoUrl &&
+      cached.ref === snapshot.ref &&
+      Date.now() - cached.savedAt <= CODE_CHAT_COMMIT_REFRESH_MS;
+
+    const commits = useCachedCommits
+      ? cached.commits
+      : await fetchRecentCommitsDetailed(
+          snapshot.owner,
+          snapshot.repo,
+          snapshot.ref,
+        );
+
     const treeText = formatTreeForPrompt(snapshot.treePaths);
-
-    const pickReply = await this.backend.complete(this.credential, model, [
-      { role: "system", content: FILE_PICK_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Question:\n${input.prompt}\n\nRepository file tree:\n${treeText}`,
-      },
-    ]);
-
-    const selected = pickPathsFromModelReply(
-      pickReply,
-      new Set(snapshot.treePaths),
+    const repoLine = `Repository: ${repoUrlForSnapshot(snapshot)} (ref: ${snapshot.ref})`;
+    const heuristicPaths = suggestPathsForQuestion(
+      input.prompt,
+      snapshot.treePaths,
     );
-    const files = await fetchSelectedFiles(snapshot, selected);
-    const context = formatFilesForPrompt(snapshot, files);
+
+    let modelPaths: string[] = [];
+    if (heuristicPaths.length < 4) {
+      const pickReply = await this.backend.complete(this.credential, model, [
+        { role: "system", content: FILE_PICK_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `${repoLine}\n\nQuestion:\n${input.prompt}\n\nRepository file tree:\n${treeText}`,
+        },
+      ]);
+      modelPaths = pickPathsFromModelReply(
+        pickReply,
+        new Set(snapshot.treePaths),
+      );
+    }
+
+    const selected = mergePathPicks(heuristicPaths, modelPaths);
+    const cachedFiles =
+      cached?.repoUrl === repoUrl && cached.ref === snapshot.ref
+        ? cached.files
+        : [];
+    const cachedPathSet = new Set(cachedFiles.map((file) => file.path));
+    const pathsToFetch = selected.filter((path) => !cachedPathSet.has(path));
+    const fetched = await fetchSelectedFiles(snapshot, pathsToFetch);
+    const files = mergeFetchedFiles(cachedFiles, fetched, selected);
+    const context = formatFilesForPrompt(snapshot, files, commits);
+
+    if (cacheKey) {
+      await writeCodeChatCache(cacheKey, {
+        repoUrl,
+        ref: snapshot.ref,
+        treePaths: snapshot.treePaths,
+        ...(snapshot.readme ? { readme: snapshot.readme } : {}),
+        manifests: snapshot.manifests,
+        commits,
+        files,
+        savedAt: Date.now(),
+      });
+    }
 
     const result = await this.backend.complete(this.credential, model, [
       { role: "system", content: CODE_CHAT_SYSTEM_PROMPT },
