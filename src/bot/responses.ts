@@ -45,14 +45,21 @@ export function runEmbed(
         { name: "Provider", value: providerDisplayName, inline: true },
       ]
     : [{ name: "Model", value: providerDisplayName, inline: true }];
-  if (prompt) {
-    fields.unshift({
-      name: username ? `${truncate(username, 230)} asked` : "Prompt",
-      value: truncate(prompt, 1024),
-    });
-  }
   if (branch) fields.push({ name: "Branch", value: `\`${branch}\`` });
   if (prUrl) fields.push({ name: "Pull request", value: prUrl });
+
+  // Discord renders description above fields — put the user's prompt first,
+  // then the bot answer, so the original question is always at the top.
+  const descriptionParts: string[] = [];
+  if (prompt) {
+    const who = username
+      ? `**${truncate(username, 80)} asked**`
+      : "**Prompt**";
+    descriptionParts.push(`${who}\n${truncate(prompt, 1000)}`);
+  }
+  if (run.result) {
+    descriptionParts.push(truncate(run.result, prompt ? 2800 : 3900));
+  }
 
   const embed: DiscordEmbed = {
     color: statusColors[run.status],
@@ -60,7 +67,9 @@ export function runEmbed(
     fields,
     timestamp: new Date(run.updatedAt).toISOString(),
   };
-  if (run.result) embed.description = truncate(run.result, 3900);
+  if (descriptionParts.length > 0) {
+    embed.description = truncate(descriptionParts.join("\n\n"), 4090);
+  }
   return embed;
 }
 
